@@ -12,7 +12,9 @@
     "db:setup": "ts-node src/scripts/setup-database.ts",
     "db:health": "ts-node -e \"import('./src/database').then(db => db.DatabaseConnection.healthCheck().then(console.log))\"",
     "db:test": "ts-node src/test-database.ts",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage"
   },
   "keywords": [],
   "author": "",
@@ -29,10 +31,13 @@
   "devDependencies": {
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.3",
+    "@types/jest": "^30.0.0",
     "@types/multer": "^2.0.0",
     "@types/node": "^24.2.1",
+    "jest": "^30.0.5",
     "nodemon": "^3.1.10",
     "rimraf": "^6.0.1",
+    "ts-jest": "^29.4.1",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.2"
   }
