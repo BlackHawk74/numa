@@ -131,40 +131,151 @@ export class SentimentAnalysisService {
   }
 
   /**
-   * Get therapeutic recommendations based on emotion
+   * Get comprehensive therapeutic recommendations based on emotion and intensity
    */
   getTherapeuticRecommendations(emotion: string, confidence: number): string[] {
     const recommendations: { [key: string]: string[] } = {
       'sad': [
-        'Focus on identifying negative thought patterns',
-        'Encourage behavioral activation',
-        'Explore underlying beliefs'
+        'Focus on identifying negative thought patterns and cognitive distortions',
+        'Encourage behavioral activation through small, achievable activities',
+        'Explore underlying beliefs about self-worth and capability',
+        'Use thought challenging techniques to examine evidence for negative thoughts',
+        'Implement mood monitoring to track patterns and triggers'
       ],
       'anxious': [
-        'Practice grounding techniques',
-        'Challenge catastrophic thinking',
-        'Use breathing exercises'
+        'Practice grounding techniques like 5-4-3-2-1 sensory awareness',
+        'Challenge catastrophic thinking with probability estimation',
+        'Use breathing exercises and progressive muscle relaxation',
+        'Implement worry time to contain anxious thoughts',
+        'Develop coping statements for anxiety-provoking situations'
       ],
       'angry': [
-        'Identify triggers and warning signs',
-        'Practice anger management techniques',
-        'Explore underlying hurt or frustration'
+        'Identify triggers, warning signs, and physical sensations of anger',
+        'Practice anger management techniques including time-outs',
+        'Explore underlying hurt, fear, or unmet needs beneath anger',
+        'Use cognitive restructuring to challenge angry interpretations',
+        'Develop assertiveness skills for healthy expression of needs'
       ],
       'happy': [
-        'Reinforce positive thoughts and behaviors',
-        'Build on current strengths',
-        'Set positive goals'
+        'Reinforce positive thoughts and behaviors through gratitude practices',
+        'Build on current strengths and successful coping strategies',
+        'Set positive, meaningful goals that align with values',
+        'Practice savoring techniques to enhance positive experiences',
+        'Use positive emotions to build resilience for future challenges'
+      ],
+      'fear': [
+        'Gradually expose to feared situations using systematic desensitization',
+        'Challenge safety behaviors and avoidance patterns',
+        'Practice realistic risk assessment and probability thinking',
+        'Develop personalized coping statements for fearful moments',
+        'Use relaxation techniques to manage physical fear responses'
+      ],
+      'disgusted': [
+        'Explore values conflicts that may be triggering disgust',
+        'Practice acceptance and tolerance of uncomfortable emotions',
+        'Use cognitive defusion to observe thoughts without judgment',
+        'Implement behavioral experiments to test disgust-related assumptions',
+        'Develop mindful exposure strategies to increase emotional tolerance'
+      ],
+      'surprised': [
+        'Process unexpected events and their emotional impact',
+        'Explore assumptions that were challenged by surprising information',
+        'Practice flexibility and adaptability in thinking patterns',
+        'Use surprise as an opportunity for learning and growth',
+        'Develop coping strategies for uncertainty and change'
       ]
     };
 
     const intensity = this.getEmotionIntensity(confidence);
-    const baseRecommendations = recommendations[emotion.toLowerCase()] || ['Provide general CBT support'];
+    const baseRecommendations = recommendations[emotion.toLowerCase()] || [
+      'Provide general CBT support through thought monitoring',
+      'Encourage mindfulness and present-moment awareness',
+      'Explore the connection between thoughts, feelings, and behaviors'
+    ];
 
+    // Add intensity-specific recommendations
     if (intensity === 'high' && this.isDistressedEmotion(emotion)) {
-      baseRecommendations.unshift('Provide immediate emotional support');
+      baseRecommendations.unshift(
+        'Provide immediate emotional validation and support',
+        'Ensure safety and stability before proceeding with interventions'
+      );
+    } else if (intensity === 'low') {
+      baseRecommendations.push(
+        'Explore subtle emotional patterns that may be overlooked',
+        'Build emotional awareness and vocabulary'
+      );
     }
 
     return baseRecommendations;
+  }
+
+  /**
+   * Get emotion-specific CBT intervention strategies
+   */
+  getCBTInterventions(emotion: string, confidence: number): {
+    cognitive: string[];
+    behavioral: string[];
+    physiological: string[];
+  } {
+    const interventions: { [key: string]: { cognitive: string[]; behavioral: string[]; physiological: string[] } } = {
+      'sad': {
+        cognitive: [
+          'Identify and challenge negative automatic thoughts',
+          'Examine evidence for and against depressive thoughts',
+          'Practice cognitive restructuring with balanced thinking'
+        ],
+        behavioral: [
+          'Schedule pleasant activities daily',
+          'Increase social connections and support',
+          'Establish regular sleep and exercise routines'
+        ],
+        physiological: [
+          'Practice deep breathing exercises',
+          'Engage in physical activity to boost mood',
+          'Maintain proper nutrition and hydration'
+        ]
+      },
+      'anxious': {
+        cognitive: [
+          'Challenge catastrophic thinking patterns',
+          'Practice probability estimation for feared outcomes',
+          'Develop realistic coping statements'
+        ],
+        behavioral: [
+          'Gradually face feared situations through exposure',
+          'Reduce avoidance and safety behaviors',
+          'Practice relaxation and grounding techniques'
+        ],
+        physiological: [
+          'Use controlled breathing techniques',
+          'Practice progressive muscle relaxation',
+          'Engage in regular physical exercise'
+        ]
+      },
+      'angry': {
+        cognitive: [
+          'Identify and challenge angry thoughts and assumptions',
+          'Practice perspective-taking and empathy',
+          'Develop alternative interpretations of situations'
+        ],
+        behavioral: [
+          'Use time-out strategies when anger escalates',
+          'Practice assertive communication skills',
+          'Engage in physical outlets for anger energy'
+        ],
+        physiological: [
+          'Practice deep breathing to reduce physical tension',
+          'Use progressive muscle relaxation',
+          'Engage in vigorous exercise to release anger energy'
+        ]
+      }
+    };
+
+    return interventions[emotion.toLowerCase()] || {
+      cognitive: ['Practice mindful observation of thoughts'],
+      behavioral: ['Engage in values-based activities'],
+      physiological: ['Use basic relaxation techniques']
+    };
   }
 
   /**

@@ -48,7 +48,7 @@ describe('HuggingFace Services Integration', () => {
   describe('Error Handling', () => {
     it('should handle missing API key gracefully', () => {
       delete process.env.HUGGINGFACE_API_KEY;
-      
+
       expect(() => {
         // This should throw an error for missing API key
         const { HuggingFaceClient } = require('../HuggingFaceClient');
@@ -59,7 +59,7 @@ describe('HuggingFace Services Integration', () => {
     it('should provide meaningful error messages', async () => {
       const emptyBuffer = new ArrayBuffer(0);
       const validation = speechToTextService.validateAudioInput(emptyBuffer);
-      
+
       expect(validation.valid).toBe(false);
       expect(validation.error).toBe('Audio buffer is empty');
     });
@@ -69,7 +69,7 @@ describe('HuggingFace Services Integration', () => {
     it('should allow services to work together in a therapy flow', async () => {
       // Mock a complete therapy interaction flow
       const mockAudioBuffer = new ArrayBuffer(1024);
-      
+
       // Validate that we can chain service calls
       const audioValidation = speechToTextService.validateAudioInput(mockAudioBuffer);
       expect(audioValidation.valid).toBe(true);
@@ -86,7 +86,7 @@ describe('HuggingFace Services Integration', () => {
         sessionHistory: ['Previous session'],
         activeGoals: ['Practice mindfulness']
       };
-      
+
       expect(() => conversationService.generateResponse('Hello', context)).not.toThrow();
     });
 
@@ -102,7 +102,7 @@ describe('HuggingFace Services Integration', () => {
     it('should have reasonable retry configurations', () => {
       // Test that services have sensible retry defaults
       const testOptions = { maxRetries: 2, retryDelay: 500 };
-      
+
       expect(() => speechToTextService.transcribeAudio(new ArrayBuffer(1024), testOptions)).not.toThrow();
       expect(() => conversationService.generateResponse('test', { userId: 'test' }, testOptions)).not.toThrow();
     });
@@ -111,7 +111,7 @@ describe('HuggingFace Services Integration', () => {
       // Test size limits
       const largeBuffer = new ArrayBuffer(30 * 1024 * 1024); // 30MB
       const validation = speechToTextService.validateAudioInput(largeBuffer);
-      
+
       expect(validation.valid).toBe(false);
       expect(validation.error).toContain('too large');
     });
@@ -120,7 +120,7 @@ describe('HuggingFace Services Integration', () => {
   describe('Therapeutic Features', () => {
     it('should provide emotion-based recommendations', () => {
       const recommendations = sentimentAnalysisService.getTherapeuticRecommendations('anxious', 0.8);
-      
+
       expect(Array.isArray(recommendations)).toBe(true);
       expect(recommendations.length).toBeGreaterThan(0);
       expect(recommendations.some(r => r.includes('grounding'))).toBe(true);

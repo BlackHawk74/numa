@@ -2,23 +2,34 @@ import { ConversationService } from '../ConversationService';
 import type { ConversationContext } from '../ConversationService';
 
 // Mock the HuggingFace client
-jest.mock('../HuggingFaceClient', () => ({
-  huggingFaceClient: {
-    getClient: jest.fn(() => ({
-      textGeneration: jest.fn()
-    }))
-  }
-}));
+jest.mock('../HuggingFaceClient', () => {
+  const mockTextGeneration = jest.fn();
+  return {
+    huggingFaceClient: {
+      getClient: jest.fn(() => ({
+        textGeneration: mockTextGeneration
+      }))
+    }
+  };
+});
 
 describe('ConversationService', () => {
   let service: ConversationService;
-  let mockClient: any;
+  let mockTextGeneration: jest.Mock;
 
   beforeEach(() => {
     const { huggingFaceClient } = require('../HuggingFaceClient');
-    mockClient = huggingFaceClient.getClient();
-    service = new ConversationService();
+    mockTextGeneration = huggingFaceClient.getClient().textGeneration;
     jest.clearAllMocks();
+
+    // Default mock implementation that returns the response after the prompt
+    mockTextGeneration.mockImplementation((params: any) => {
+      return Promise.resolve({
+        generated_text: `${params.inputs}Default response for testing.`
+      });
+    });
+
+    service = new ConversationService();
   });
 
   describe('generateResponse', () => {
@@ -31,17 +42,18 @@ describe('ConversationService', () => {
     };
 
     it('should generate therapeutic response', async () => {
-      const mockPrompt = 'test prompt';
       const mockResponse = 'I understand you\'re feeling anxious. Let\'s work through this together.';
-      mockClient.textGeneration.mockResolvedValue({
-        generated_text: `${mockPrompt}${mockResponse}`
+      mockTextGeneration.mockImplementation((params: any) => {
+        return Promise.resolve({
+          generated_text: `${params.inputs}${mockResponse}`
+        });
       });
 
       const result = await service.generateResponse('I feel worried about tomorrow', mockContext);
 
       expect(result.response).toBe(mockResponse);
       expect(result.error).toBeUndefined();
-      expect(mockClient.textGeneration).toHaveBeenCalledWith({
+      expect(mockTextGeneration).toHaveBeenCalledWith({
         model: 'meta-llama/Llama-3.1-8B-Instruct',
         inputs: expect.stringContaining('I feel worried about tomorrow'),
         parameters: {
@@ -56,10 +68,11 @@ describe('ConversationService', () => {
     });
 
     it('should extract goals from response', async () => {
-      const mockPrompt = 'test prompt';
       const mockResponse = 'Try to practice deep breathing for 5 minutes daily.';
-      mockClient.textGeneration.mockResolvedValue({
-        generated_text: `${mockPrompt}${mockResponse}`
+      mockTextGeneration.mockImplementation((params: any) => {
+        return Promise.resolve({
+          generated_text: `${params.inputs}${mockResponse}`
+        });
       });
 
       const result = await service.generateResponse('I need help with anxiety', mockContext);
@@ -73,16 +86,17 @@ describe('ConversationService', () => {
         detectedEmotion: 'sad'
       };
 
-      const mockPrompt = 'test prompt';
       const mockResponse = 'I hear that you\'re feeling down.';
-      mockClient.textGeneration.mockResolvedValue({
-        generated_text: `${mockPrompt}${mockResponse}`
+      mockTextGeneration.mockImplementation((params: any) => {
+        return Promise.resolve({
+          generated_text: `${params.inputs}${mockResponse}`
+        });
       });
 
       const result = await service.generateResponse('I feel sad', sadContext);
 
       expect(result.detectedEmotion).toBe('sad');
-      expect(mockClient.textGeneration).toHaveBeenCalledWith(
+      expect(mockTextGeneration).toHaveBeenCalledWith(
         expect.objectContaining({
           inputs: expect.stringContaining('encouraging and supportive tone')
         })
@@ -90,20 +104,23 @@ describe('ConversationService', () => {
     });
 
     it('should handle API failures with retry', async () => {
-      const mockPrompt = 'test prompt';
       const mockResponse = 'Success on retry';
-      mockClient.textGeneration
+      mockTextGeneration
         .mockRejectedValueOnce(new Error('Network error'))
-        .mockResolvedValue({ generated_text: `${mockPrompt}${mockResponse}` });
+        .mockImplementation((params: any) => {
+          return Promise.resolve({
+            generated_text: `${params.inputs}${mockResponse}`
+          });
+        });
 
       const result = await service.generateResponse('Hello', mockContext, { maxRetries: 2 });
 
       expect(result.response).toBe(mockResponse);
-      expect(mockClient.textGeneration).toHaveBeenCalledTimes(2);
+      expect(mockTextGeneration).toHaveBeenCalledTimes(2);
     });
 
     it('should return fallback response on complete failure', async () => {
-      mockClient.textGeneration.mockRejectedValue(new Error('API Error'));
+      mockTextGeneration.mockRejectedValue(new Error('API Error'));
 
       const result = await service.generateResponse('Hello', mockContext, { maxRetries: 1 });
 
@@ -112,27 +129,28 @@ describe('ConversationService', () => {
     });
 
     it('should not retry on non-retryable errors', async () => {
-      mockClient.textGeneration.mockRejectedValue(new Error('Unauthorized'));
+      mockTextGeneration.mockRejectedValue(new Error('Unauthorized'));
 
       const result = await service.generateResponse('Hello', mockContext, { maxRetries: 3 });
 
-      expect(mockClient.textGeneration).toHaveBeenCalledTimes(1);
+      expect(mockTextGeneration).toHaveBeenCalledTimes(1);
       expect(result.error).toContain('Conversation generation failed after 1 attempts: Unauthorized');
     });
 
     it('should handle empty context gracefully', async () => {
       const emptyContext: ConversationContext = { userId: 'test-user' };
-      
-      const mockPrompt = 'test prompt';
+
       const mockResponse = 'Hello, how can I help you today?';
-      mockClient.textGeneration.mockResolvedValue({
-        generated_text: `${mockPrompt}${mockResponse}`
+      mockTextGeneration.mockImplementation((params: any) => {
+        return Promise.resolve({
+          generated_text: `${params.inputs}${mockResponse}`
+        });
       });
 
       const result = await service.generateResponse('Hi', emptyContext);
 
       expect(result.response).toBe(mockResponse);
-      expect(mockClient.textGeneration).toHaveBeenCalledWith(
+      expect(mockTextGeneration).toHaveBeenCalledWith(
         expect.objectContaining({
           inputs: expect.stringContaining('This is a new session')
         })
@@ -147,15 +165,16 @@ describe('ConversationService', () => {
         detectedEmotion: 'anxious'
       };
 
-      const mockPrompt = 'test prompt';
       const mockResponse = 'Let\'s focus on grounding techniques.';
-      mockClient.textGeneration.mockResolvedValue({
-        generated_text: `${mockPrompt}${mockResponse}`
+      mockTextGeneration.mockImplementation((params: any) => {
+        return Promise.resolve({
+          generated_text: `${params.inputs}${mockResponse}`
+        });
       });
 
       await service.generateResponse('I\'m anxious', anxiousContext);
 
-      expect(mockClient.textGeneration).toHaveBeenCalledWith(
+      expect(mockTextGeneration).toHaveBeenCalledWith(
         expect.objectContaining({
           inputs: expect.stringContaining('calm and grounding tone')
         })
@@ -168,17 +187,118 @@ describe('ConversationService', () => {
         detectedEmotion: 'sad'
       };
 
-      const mockPrompt = 'test prompt';
       const mockResponse = 'I understand you\'re going through a difficult time.';
-      mockClient.textGeneration.mockResolvedValue({
-        generated_text: `${mockPrompt}${mockResponse}`
+      mockTextGeneration.mockImplementation((params: any) => {
+        return Promise.resolve({
+          generated_text: `${params.inputs}${mockResponse}`
+        });
       });
 
       await service.generateResponse('I feel sad', sadContext);
 
-      expect(mockClient.textGeneration).toHaveBeenCalledWith(
+      expect(mockTextGeneration).toHaveBeenCalledWith(
         expect.objectContaining({
           inputs: expect.stringContaining('encouraging and supportive tone')
+        })
+      );
+    });
+
+    it('should include CBT techniques for specific emotions', async () => {
+      const angryContext: ConversationContext = {
+        userId: 'test-user',
+        detectedEmotion: 'angry'
+      };
+
+      const mockResponse = 'Let\'s explore what\'s beneath this anger.';
+      mockTextGeneration.mockImplementation((params: any) => {
+        return Promise.resolve({
+          generated_text: `${params.inputs}${mockResponse}`
+        });
+      });
+
+      await service.generateResponse('I\'m so angry!', angryContext);
+
+      expect(mockTextGeneration).toHaveBeenCalledWith(
+        expect.objectContaining({
+          inputs: expect.stringContaining('Anger logs - identify triggers and patterns')
+        })
+      );
+    });
+  });
+
+  describe('conversation phase adaptation', () => {
+    it('should adapt to opening phase for new users', async () => {
+      const newUserContext: ConversationContext = {
+        userId: 'test-user',
+        sessionHistory: []
+      };
+
+      const mockResponse = 'Welcome! Tell me what brings you here today.';
+      mockTextGeneration.mockImplementation((params: any) => {
+        return Promise.resolve({
+          generated_text: `${params.inputs}${mockResponse}`
+        });
+      });
+
+      await service.generateResponse('Hello', newUserContext);
+
+      expect(mockTextGeneration).toHaveBeenCalledWith(
+        expect.objectContaining({
+          inputs: expect.stringContaining('CONVERSATION PHASE: OPENING')
+        })
+      );
+    });
+
+    it('should adapt to intervention phase for established users', async () => {
+      const establishedUserContext: ConversationContext = {
+        userId: 'test-user',
+        sessionHistory: ['Session 1', 'Session 2', 'Session 3', 'Session 4']
+      };
+
+      const mockResponse = 'Let\'s try a specific CBT technique.';
+      mockTextGeneration.mockImplementation((params: any) => {
+        return Promise.resolve({
+          generated_text: `${params.inputs}${mockResponse}`
+        });
+      });
+
+      await service.generateResponse('I need help', establishedUserContext);
+
+      expect(mockTextGeneration).toHaveBeenCalledWith(
+        expect.objectContaining({
+          inputs: expect.stringContaining('CONVERSATION PHASE: INTERVENTION')
+        })
+      );
+    });
+  });
+
+  describe('session conclusion', () => {
+    it('should detect when session should be concluded', () => {
+      expect(service.shouldConcludeSession(12)).toBe(true); // Long conversation
+      expect(service.shouldConcludeSession(5, 50)).toBe(true); // Long duration
+      expect(service.shouldConcludeSession(3, 20, 'Thank you, that helps')).toBe(true); // User ending
+      expect(service.shouldConcludeSession(3, 20, 'Tell me more')).toBe(false); // Continue
+    });
+
+    it('should generate session conclusion response', async () => {
+      const mockContext: ConversationContext = {
+        userId: 'test-user',
+        sessionHistory: ['Previous session']
+      };
+
+      const mockResponse = 'Thank you for sharing today. Your goal is to practice mindfulness daily.';
+      mockTextGeneration.mockImplementation((params: any) => {
+        return Promise.resolve({
+          generated_text: `${params.inputs}${mockResponse}`
+        });
+      });
+
+      const result = await service.generateSessionConclusion('Thank you', mockContext);
+
+      expect(result.response).toBe(mockResponse);
+      expect(mockTextGeneration).toHaveBeenCalledWith(
+        expect.objectContaining({
+          inputs: expect.stringContaining('SESSION_CONCLUSION')
         })
       );
     });
