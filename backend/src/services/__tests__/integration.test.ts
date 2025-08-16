@@ -92,8 +92,9 @@ describe('HuggingFace Services Integration', () => {
 
     it('should handle browser TTS availability check', () => {
       // Test static method for browser TTS availability
-      const isBrowserTTSAvailable = textToSpeechService.constructor.isBrowserTTSAvailable;
-      expect(typeof isBrowserTTSAvailable).toBe('function');
+      const { TextToSpeechService } = require('../TextToSpeechService');
+      expect(typeof TextToSpeechService.isBrowserTTSAvailable).toBe('function');
+      expect(TextToSpeechService.isBrowserTTSAvailable()).toBe(false); // Should be false in Node.js
     });
   });
 
