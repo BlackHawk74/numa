@@ -1,6 +1,7 @@
 import { useCallback, useEffect } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { AudioUtils } from '../utils/audioUtils';
+import { ttsService } from '../services/TTSService';
 
 export function useAudio() {
   const { state, dispatch } = useAppContext();
@@ -102,26 +103,84 @@ export function useAudio() {
     }
   }, [audioState.isRecording, dispatch]);
 
-  // Play text using speech synthesis
-  const speakText = useCallback(async (text: string) => {
+  // Play text using enhanced TTS service with fallback
+  const speakText = useCallback(async (text: string, options?: { useFallback?: boolean }) => {
     try {
       dispatch({ type: 'SET_PLAYING', payload: true });
       dispatch({ type: 'SET_AUDIO_ERROR', payload: undefined });
       
-      await AudioUtils.speakText(text);
+      const result = await ttsService.speak(text, {
+        voice: audioState.currentVoice,
+        useFallback: options?.useFallback,
+        rate: 0.85, // Therapy-optimized rate
+        pitch: 1.0,
+        volume: 0.9
+      });
+
+      if (!result.success) {
+        throw new Error(result.error || 'TTS failed');
+      }
+
+      // Store playback controls if available
+      if (result.controls) {
+        dispatch({ type: 'SET_TTS_CONTROLS', payload: result.controls });
+      }
+
       dispatch({ type: 'SET_PLAYING', payload: false });
+      
+      return result;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to play speech';
       dispatch({ type: 'SET_AUDIO_ERROR', payload: errorMessage });
       dispatch({ type: 'SET_PLAYING', payload: false });
+      throw error;
     }
-  }, [dispatch]);
+  }, [dispatch, audioState.currentVoice]);
 
   // Stop current speech
   const stopSpeaking = useCallback(() => {
-    AudioUtils.stopSpeaking();
+    ttsService.stop();
+    AudioUtils.stopSpeaking(); // Fallback for legacy calls
     dispatch({ type: 'SET_PLAYING', payload: false });
+    dispatch({ type: 'SET_TTS_CONTROLS', payload: undefined });
   }, [dispatch]);
+
+  // Pause current speech
+  const pauseSpeaking = useCallback(() => {
+    ttsService.pause();
+  }, []);
+
+  // Resume paused speech
+  const resumeSpeaking = useCallback(() => {
+    ttsService.resume();
+  }, []);
+
+  // Get available voices
+  const getAvailableVoices = useCallback(() => {
+    return ttsService.getAvailableVoices();
+  }, []);
+
+  // Set preferred voice
+  const setVoice = useCallback((voice: SpeechSynthesisVoice | null) => {
+    ttsService.setVoice(voice);
+    dispatch({ type: 'SET_CURRENT_VOICE', payload: voice || undefined });
+  }, [dispatch]);
+
+  // Get TTS service status
+  const getTTSStatus = useCallback(() => {
+    return ttsService.getStatus();
+  }, []);
+
+  // Test TTS functionality
+  const testTTS = useCallback(async () => {
+    try {
+      const results = await ttsService.testTTS();
+      return results;
+    } catch (error) {
+      console.error('TTS test failed:', error);
+      return { browserTTS: false, fallbackTTS: false };
+    }
+  }, []);
 
   // Initialize audio system on mount
   useEffect(() => {
@@ -143,5 +202,11 @@ export function useAudio() {
     stopRecording,
     speakText,
     stopSpeaking,
+    pauseSpeaking,
+    resumeSpeaking,
+    getAvailableVoices,
+    setVoice,
+    getTTSStatus,
+    testTTS,
   };
 }

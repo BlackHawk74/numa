@@ -23,7 +23,7 @@ export interface Goal {
   user_id: string;
   description: string;
   created_at: string;
-  status: 'active' | 'completed' | 'paused';
+  status: 'active' | 'completed' | 'cancelled';
   target_date?: string;
   progress_notes?: string[];
 }
@@ -45,6 +45,15 @@ export interface AudioState {
   isInitialized?: boolean;
   supportedFormats?: string[];
   currentVoice?: SpeechSynthesisVoice;
+  ttsControls?: SpeechPlaybackControls;
+}
+
+export interface SpeechPlaybackControls {
+  pause: () => void;
+  resume: () => void;
+  stop: () => void;
+  isPaused: boolean;
+  isSpeaking: boolean;
 }
 
 export interface ConversationState {
@@ -72,6 +81,9 @@ export interface TherapyResponse {
   response: string;
   emotion: string;
   goal?: string;
+  sessionId?: string;
+  emotionConfidence?: number;
+  shouldConcludeSession?: boolean;
 }
 
 export interface TTSResponse {

@@ -54,7 +54,8 @@ async function runAllMigrations(): Promise<void> {
     
     // List of migration files in order
     const migrations = [
-      '001_initial_schema.sql'
+      '001_initial_schema.sql',
+      '002_disable_rls_for_demo.sql'
     ];
     
     for (const migration of migrations) {

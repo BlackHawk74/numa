@@ -300,6 +300,7 @@ export class AudioUtils {
 
   /**
    * Play text using Web Speech API with enhanced error handling
+   * @deprecated Use TTSService.speak() instead for better fallback support
    */
   static speakText(text: string, voice?: SpeechSynthesisVoice): Promise<void> {
     return new Promise((resolve, reject) => {
@@ -314,9 +315,9 @@ export class AudioUtils {
       const utterance = new SpeechSynthesisUtterance(text);
       
       // Configure voice settings for therapy
-      utterance.rate = 0.9; // Slightly slower for therapeutic effect
+      utterance.rate = 0.85; // Slower for therapeutic effect
       utterance.pitch = 1.0;
-      utterance.volume = 0.8;
+      utterance.volume = 0.9;
       utterance.lang = 'en-US'; // Ensure English language
       
       if (voice) {
@@ -336,7 +337,7 @@ export class AudioUtils {
           speechSynthesis.cancel();
           reject(new Error('Speech synthesis timed out'));
         }
-      }, 30000); // 30 second timeout
+      }, 60000); // 60 second timeout
 
       utterance.onend = () => {
         hasEnded = true;

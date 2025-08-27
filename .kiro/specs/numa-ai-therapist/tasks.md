@@ -62,12 +62,6 @@
 
 - [x] 8. Implement audio recording and Web Audio API integration
 
-
-
-
-
-
-
   - Create microphone permission handling with graceful error messages
   - Implement press-and-hold recording functionality
   - Add waveform visualization during audio recording
@@ -75,7 +69,7 @@
   - Implement audio quality optimization and compression
   - _Requirements: 1.1, 1.2, 7.1, 7.2_
 
-- [ ] 9. Integrate browser Web Speech API for text-to-speech
+- [x] 9. Integrate browser Web Speech API for text-to-speech
 
   - Implement Web Speech API wrapper with voice selection
   - Create fallback mechanism to HuggingFace TTS when browser TTS unavailable
@@ -84,7 +78,8 @@
   - Write tests for TTS integration and fallback behavior
   - _Requirements: 1.4, 6.2, 8.3, 8.4_
 
-- [ ] 10. Build conversation flow and real-time updates
+- [x] 10. Build conversation flow and real-time updates
+
 
   - Connect frontend audio recording to backend STT endpoint
   - Implement real-time conversation display with user and Numa messages
@@ -93,7 +88,12 @@
   - Implement conversation state management and error recovery
   - _Requirements: 1.1, 1.2, 1.3, 1.4, 2.1, 4.4_
 
-- [ ] 11. Implement user session and goal management
+- [x] 11. Implement user session and goal management
+
+
+
+
+
 
   - Create user registration and session initialization
   - Implement session history retrieval and display

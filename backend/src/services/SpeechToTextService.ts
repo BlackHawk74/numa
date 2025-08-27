@@ -45,9 +45,23 @@ export class SpeechToTextService {
       try {
         console.log(`STT attempt ${attempt}/${maxRetries} using model: ${this.MODEL_NAME}`);
 
+        // Ensure we have a Blob with proper MIME type
+        let audioData: Blob;
+        if (audioBuffer instanceof ArrayBuffer) {
+          // Create a Blob with proper audio MIME type (default to webm)
+          audioData = new Blob([audioBuffer], { type: 'audio/webm' });
+        } else {
+          audioData = audioBuffer;
+          // Ensure the Blob has a proper MIME type
+          if (!audioData.type || audioData.type === '') {
+            // Re-create the Blob with a proper MIME type
+            audioData = new Blob([audioData], { type: 'audio/webm' });
+          }
+        }
+
         const result = await this.client.automaticSpeechRecognition({
           model: this.MODEL_NAME,
-          data: audioBuffer,
+          data: audioData,
           parameters: {
             language: language || 'en'
           }

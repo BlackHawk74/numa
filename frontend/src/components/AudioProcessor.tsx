@@ -21,12 +21,16 @@ export function AudioProcessor({ onAudioProcessed, onError }: AudioProcessorProp
       lastMessage && 
       lastMessage.speaker === 'numa' && 
       lastMessage.content !== lastMessageRef.current &&
-      !audioState.isPlaying
+      !audioState.isPlaying &&
+      !conversationState.isProcessing
     ) {
       lastMessageRef.current = lastMessage.content;
-      speakText(lastMessage.content);
+      speakText(lastMessage.content).catch(error => {
+        console.warn('Failed to speak AI response:', error);
+        // Don't call onError for TTS failures as they're not critical
+      });
     }
-  }, [conversationState.messages, audioState.isPlaying, speakText]);
+  }, [conversationState.messages, audioState.isPlaying, conversationState.isProcessing, speakText]);
 
   // Handle audio errors
   useEffect(() => {

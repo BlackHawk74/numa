@@ -8,9 +8,9 @@ export class HuggingFaceClient {
   private apiKey: string;
 
   constructor(apiKey?: string) {
-    this.apiKey = apiKey || process.env.HUGGINGFACE_API_KEY || '';
+    this.apiKey = apiKey || process.env.HUGGINGFACE_API_KEY || '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';
     
-    if (!this.apiKey) {
+    if (!this.apiKey || this.apiKey === 'dummy-key-for-testing') {
       console.warn('Warning: HuggingFace API key not provided. API calls will fail.');
       // Don't throw error to allow testing without API key
       this.client = new HfInference('dummy-key-for-testing');

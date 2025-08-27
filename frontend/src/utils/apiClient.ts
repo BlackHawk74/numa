@@ -102,7 +102,7 @@ export class ApiClient {
    * Get user sessions
    */
   static async getUserSessions(userId: string): Promise<Session[]> {
-    const response = await fetch(`${this.baseUrl}/api/sessions?userId=${userId}`, {
+    const response = await fetch(`${this.baseUrl}/api/sessions/${userId}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -113,7 +113,8 @@ export class ApiClient {
       throw new Error(`Get sessions error: ${response.statusText}`);
     }
 
-    return response.json();
+    const result = await response.json();
+    return result.sessions || [];
   }
 
   /**
@@ -194,4 +195,222 @@ export class ApiClient {
     const result = await response.json();
     return result.user;
   }
+
+  /**
+   * Get user with context (recent sessions and active goals)
+   */
+  static async getUserContext(userId: string): Promise<{
+    user: User;
+    recentSessions: Session[];
+    activeGoals: Goal[];
+    context: {
+      sessionCount: number;
+      goalCount: number;
+      lastSessionDate: string | null;
+    };
+  }> {
+    const response = await fetch(`${this.baseUrl}/api/users/${userId}/context`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`Get user context error: ${response.statusText}`);
+    }
+
+    return response.json();
+  }
+
+  /**
+   * Initialize a new session with user context
+   */
+  static async initializeSession(userId: string): Promise<{
+    session: Session;
+    userContext: {
+      user: User;
+      recentSessions: Session[];
+      activeGoals: Goal[];
+    };
+  }> {
+    const response = await fetch(`${this.baseUrl}/api/sessions/initialize`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        userId,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Session initialization error: ${response.status} ${response.statusText} - ${errorText}`);
+    }
+
+    return response.json();
+  }
+
+  /**
+   * Update user
+   */
+  static async updateUser(userId: string, updates: {
+    name?: string;
+    preferences?: Record<string, any>;
+  }): Promise<User> {
+    const response = await fetch(`${this.baseUrl}/api/users/${userId}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(updates),
+    });
+
+    if (!response.ok) {
+      throw new Error(`User update error: ${response.statusText}`);
+    }
+
+    const result = await response.json();
+    return result.user;
+  }
+
+  /**
+   * Create a new goal
+   */
+  static async createGoal(userId: string, description: string, targetDate?: string): Promise<Goal> {
+    const response = await fetch(`${this.baseUrl}/api/goals`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        userId,
+        description,
+        targetDate,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Goal creation error: ${response.statusText}`);
+    }
+
+    const result = await response.json();
+    return result.goal;
+  }
+
+  /**
+   * Update goal
+   */
+  static async updateGoal(goalId: string, updates: {
+    description?: string;
+    status?: 'active' | 'completed' | 'cancelled';
+    targetDate?: string;
+    progressNote?: string;
+  }): Promise<Goal> {
+    const response = await fetch(`${this.baseUrl}/api/goals/${goalId}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(updates),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Goal update error: ${response.statusText}`);
+    }
+
+    const result = await response.json();
+    return result.goal;
+  }
+
+  /**
+   * Complete a goal
+   */
+  static async completeGoal(goalId: string, progressNote?: string): Promise<Goal> {
+    const response = await fetch(`${this.baseUrl}/api/goals/${goalId}/complete`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        progressNote,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Goal completion error: ${response.statusText}`);
+    }
+
+    const result = await response.json();
+    return result.goal;
+  }
 }
+
+// Export default instance for convenience
+export const apiClient = {
+  get: async (url: string, options?: { params?: Record<string, any> }) => {
+    const searchParams = options?.params ? new URLSearchParams(options.params).toString() : '';
+    const fullUrl = `${API_BASE_URL}${url}${searchParams ? `?${searchParams}` : ''}`;
+    
+    const response = await fetch(fullUrl, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`API error: ${response.statusText}`);
+    }
+
+    return { data: await response.json() };
+  },
+
+  post: async (url: string, data?: any) => {
+    const response = await fetch(`${API_BASE_URL}${url}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: data ? JSON.stringify(data) : undefined,
+    });
+
+    if (!response.ok) {
+      throw new Error(`API error: ${response.statusText}`);
+    }
+
+    return { data: await response.json() };
+  },
+
+  put: async (url: string, data?: any) => {
+    const response = await fetch(`${API_BASE_URL}${url}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: data ? JSON.stringify(data) : undefined,
+    });
+
+    if (!response.ok) {
+      throw new Error(`API error: ${response.statusText}`);
+    }
+
+    return { data: await response.json() };
+  },
+
+  delete: async (url: string) => {
+    const response = await fetch(`${API_BASE_URL}${url}`, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`API error: ${response.statusText}`);
+    }
+
+    return { data: await response.json() };
+  },
+};

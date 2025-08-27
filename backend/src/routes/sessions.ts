@@ -68,6 +68,53 @@ router.get('/:userId', async (req: Request, res: Response) => {
 });
 
 /**
+ * POST /api/sessions/initialize
+ * Initialize a new session with user context
+ */
+router.post('/initialize', async (req: Request, res: Response) => {
+  try {
+    const { userId } = req.body;
+
+    if (!userId) {
+      return res.status(400).json({
+        error: 'Missing required field',
+        message: 'userId is required'
+      });
+    }
+
+    console.log(`Initializing new session for user: ${userId}`);
+
+    // Get user context (user, recent sessions, active goals)
+    const userContext = await UserRepository.getUserWithContext(userId);
+
+    // Create new session
+    const session = await SessionRepository.create({
+      user_id: userId,
+      transcript: '',
+      status: 'active'
+    });
+
+    res.status(201).json({
+      session,
+      userContext: {
+        user: userContext.user,
+        recentSessions: userContext.recentSessions,
+        activeGoals: userContext.activeGoals
+      },
+      message: 'Session initialized successfully with user context'
+    });
+
+  } catch (error) {
+    console.error('Initialize session endpoint error:', error);
+    
+    res.status(500).json({
+      error: 'Internal server error',
+      message: error instanceof Error ? error.message : 'Unknown error occurred'
+    });
+  }
+});
+
+/**
  * POST /api/sessions
  * Create a new session
  */

@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useReducer, ReactNode } from 'react';
-import { AppState, AudioState, ConversationState, Message, Session, Goal, User } from '../types';
+import { AppState, AudioState, ConversationState, Message, Session, Goal, User, SpeechPlaybackControls } from '../types';
 
 // Initial states
 const initialAudioState: AudioState = {
@@ -37,6 +37,7 @@ type AppAction =
   | { type: 'SET_AUDIO_INITIALIZED'; payload: boolean }
   | { type: 'SET_SUPPORTED_FORMATS'; payload: string[] }
   | { type: 'SET_CURRENT_VOICE'; payload: SpeechSynthesisVoice | undefined }
+  | { type: 'SET_TTS_CONTROLS'; payload: SpeechPlaybackControls | undefined }
   | { type: 'ADD_MESSAGE'; payload: Message }
   | { type: 'SET_PROCESSING'; payload: boolean }
   | { type: 'SET_CONVERSATION_ERROR'; payload: string | undefined }
@@ -91,6 +92,12 @@ function appReducer(state: AppState, action: AppAction): AppState {
       return {
         ...state,
         audioState: { ...state.audioState, currentVoice: action.payload },
+      };
+    
+    case 'SET_TTS_CONTROLS':
+      return {
+        ...state,
+        audioState: { ...state.audioState, ttsControls: action.payload },
       };
     
     case 'ADD_MESSAGE':

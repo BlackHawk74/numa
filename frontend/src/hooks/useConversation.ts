@@ -1,7 +1,8 @@
 import { useCallback } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { ApiClient } from '../utils/apiClient';
-import { Message } from '../types';
+import { Message, TherapyResponse } from '../types';
+import { ttsService } from '../services/TTSService';
 
 export function useConversation() {
   const { state, dispatch } = useAppContext();
@@ -17,69 +18,208 @@ export function useConversation() {
       return;
     }
 
+    // Validate message content
+    if (!content || content.trim().length === 0) {
+      dispatch({ 
+        type: 'SET_CONVERSATION_ERROR', 
+        payload: 'Message cannot be empty' 
+      });
+      return;
+    }
+
     try {
       dispatch({ type: 'SET_PROCESSING', payload: true });
       dispatch({ type: 'SET_CONVERSATION_ERROR', payload: undefined });
 
-      // Add user message to conversation
+      console.log('Sending message to therapy API:', content);
+
+      // Add user message to conversation immediately for better UX
       const userMessage: Message = {
         id: Date.now().toString(),
         speaker: 'user',
-        content,
+        content: content.trim(),
         timestamp: new Date(),
       };
       dispatch({ type: 'ADD_MESSAGE', payload: userMessage });
 
-      // Send to therapy API
-      const response = await ApiClient.sendTherapyMessage(
-        user.id,
-        content,
-        currentSession?.id
-      );
+      // Send to therapy API with retry logic
+      let response: TherapyResponse | undefined;
+      let retryCount = 0;
+      const maxRetries = 3;
+
+      while (retryCount < maxRetries) {
+        try {
+          response = await ApiClient.sendTherapyMessage(
+            user.id,
+            content.trim(),
+            currentSession?.id
+          );
+          break; // Success, exit retry loop
+        } catch (error) {
+          retryCount++;
+          console.warn(`Therapy API attempt ${retryCount} failed:`, error);
+          
+          if (retryCount >= maxRetries) {
+            throw error; // Re-throw after max retries
+          }
+          
+          // Wait before retry (exponential backoff)
+          await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
+        }
+      }
+
+      if (!response) {
+        throw new Error('Failed to get response from therapy API');
+      }
+
+      console.log('Received therapy response:', response);
+
+      // Extract response values for type safety
+      const aiResponse = response.response;
+      const aiEmotion = response.emotion;
+      const sessionId = response.sessionId;
+      const suggestedGoal = response.goal;
 
       // Add AI response to conversation
       const aiMessage: Message = {
         id: (Date.now() + 1).toString(),
         speaker: 'numa',
-        content: response.response,
+        content: aiResponse,
         timestamp: new Date(),
-        emotion: response.emotion,
+        emotion: aiEmotion,
       };
       dispatch({ type: 'ADD_MESSAGE', payload: aiMessage });
 
+      // Update session if provided
+      if (sessionId && sessionId !== currentSession?.id) {
+        // Session was created or updated, refresh session info
+        try {
+          const sessions = await ApiClient.getUserSessions(user.id);
+          const latestSession = sessions.find(s => s.id === sessionId);
+          if (latestSession) {
+            dispatch({ type: 'SET_CURRENT_SESSION', payload: latestSession });
+          }
+        } catch (sessionError) {
+          console.warn('Failed to update session info:', sessionError);
+        }
+      }
+
+      // Speak the AI response using TTS service
+      try {
+        dispatch({ type: 'SET_PLAYING', payload: true });
+        
+        const ttsResult = await ttsService.speak(aiResponse, {
+          // Use therapy-optimized settings
+          rate: 0.85,
+          pitch: 1.0,
+          volume: 0.9
+        });
+
+        if (ttsResult.success && ttsResult.controls) {
+          dispatch({ type: 'SET_TTS_CONTROLS', payload: ttsResult.controls });
+        }
+
+        if (!ttsResult.success) {
+          console.warn('TTS failed:', ttsResult.error);
+        }
+      } catch (error) {
+        console.error('TTS error:', error);
+      } finally {
+        dispatch({ type: 'SET_PLAYING', payload: false });
+      }
+
       // Handle goal creation if provided
-      if (response.goal) {
-        // Goal handling would be implemented here
-        console.log('New goal created:', response.goal);
+      if (suggestedGoal) {
+        console.log('New goal suggested:', suggestedGoal);
+        // Could dispatch a goal-related action here if needed
       }
 
     } catch (error) {
+      console.error('Send message error:', error);
       const errorMessage = error instanceof Error ? error.message : 'Failed to send message';
       dispatch({ type: 'SET_CONVERSATION_ERROR', payload: errorMessage });
+      
+      // Add error message to conversation for user feedback
+      const errorMsg: Message = {
+        id: (Date.now() + 2).toString(),
+        speaker: 'numa',
+        content: "I'm having trouble processing your message right now. Could you please try again?",
+        timestamp: new Date(),
+        emotion: 'neutral',
+      };
+      dispatch({ type: 'ADD_MESSAGE', payload: errorMsg });
+      
+      // Try to speak the error message
+      try {
+        await ttsService.speak(errorMsg.content, {
+          rate: 0.85,
+          pitch: 1.0,
+          volume: 0.9
+        });
+      } catch (ttsError) {
+        console.warn('Failed to speak error message:', ttsError);
+      }
     } finally {
       dispatch({ type: 'SET_PROCESSING', payload: false });
     }
   }, [user, currentSession, dispatch]);
 
   // Process audio input
-  const processAudioMessage = useCallback(async (audioBlob: Blob): Promise<void> => {
+  const processAudioMessage = useCallback(async (audioBlob: Blob, sessionId?: string): Promise<void> => {
     try {
       dispatch({ type: 'SET_PROCESSING', payload: true });
       dispatch({ type: 'SET_CONVERSATION_ERROR', payload: undefined });
 
-      // Convert speech to text
-      const sttResponse = await ApiClient.speechToText(audioBlob);
+      console.log('Processing audio blob:', audioBlob.size, 'bytes, type:', audioBlob.type);
+
+      // Validate audio blob
+      if (audioBlob.size === 0) {
+        throw new Error('Audio recording is empty. Please try recording again.');
+      }
+
+      if (audioBlob.size < 1000) {
+        throw new Error('Audio recording is too short. Please speak for at least 1 second.');
+      }
+
+      // Convert speech to text with retry logic
+      let sttResponse;
+      let retryCount = 0;
+      const maxRetries = 2;
+
+      while (retryCount < maxRetries) {
+        try {
+          sttResponse = await ApiClient.speechToText(audioBlob);
+          break; // Success, exit retry loop
+        } catch (error) {
+          retryCount++;
+          console.warn(`STT attempt ${retryCount} failed:`, error);
+          
+          if (retryCount >= maxRetries) {
+            throw error; // Re-throw after max retries
+          }
+          
+          // Wait before retry
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+      }
+
+      if (!sttResponse) {
+        throw new Error('Failed to transcribe audio');
+      }
+
+      console.log('STT response:', sttResponse);
       
-      if (sttResponse.transcription) {
+      if (sttResponse.transcription && sttResponse.transcription.trim().length > 0) {
         // Send the transcribed message
         await sendMessage(sttResponse.transcription);
       } else {
         dispatch({ 
           type: 'SET_CONVERSATION_ERROR', 
-          payload: 'Could not transcribe audio. Please try again.' 
+          payload: 'Could not understand what you said. Please try speaking more clearly.' 
         });
       }
     } catch (error) {
+      console.error('Process audio error:', error);
       const errorMessage = error instanceof Error ? error.message : 'Failed to process audio';
       dispatch({ type: 'SET_CONVERSATION_ERROR', payload: errorMessage });
     } finally {
@@ -98,10 +238,13 @@ export function useConversation() {
     }
 
     try {
+      console.log('Creating new session for user:', user.id);
       const session = await ApiClient.createSession(user.id);
+      console.log('New session created:', session);
       dispatch({ type: 'SET_CURRENT_SESSION', payload: session });
       dispatch({ type: 'CLEAR_MESSAGES' });
     } catch (error) {
+      console.error('Failed to create session:', error);
       const errorMessage = error instanceof Error ? error.message : 'Failed to create session';
       dispatch({ type: 'SET_CONVERSATION_ERROR', payload: errorMessage });
     }
@@ -113,11 +256,20 @@ export function useConversation() {
     dispatch({ type: 'SET_CONVERSATION_ERROR', payload: undefined });
   }, [dispatch]);
 
+  // Clear messages only
+  const clearMessages = useCallback(() => {
+    dispatch({ type: 'CLEAR_MESSAGES' });
+  }, [dispatch]);
+
   return {
     conversationState,
+    messages: conversationState.messages,
+    isProcessing: conversationState.isProcessing,
+    error: conversationState.error,
     sendMessage,
     processAudioMessage,
     startNewSession,
     clearConversation,
+    clearMessages,
   };
 }

@@ -21,7 +21,7 @@ export interface SessionSummaryResult {
  */
 export class SessionSummaryService {
   private client: HfInference;
-  private readonly MODEL_NAME = 'meta-llama/Llama-3.1-8B-Instruct';
+  private readonly MODEL_NAME = 'gpt2';
   private readonly DEFAULT_MAX_RETRIES = 3;
   private readonly DEFAULT_RETRY_DELAY = 1000;
 
@@ -65,19 +65,18 @@ export class SessionSummaryService {
 
         const result = await this.client.textGeneration({
           model: this.MODEL_NAME,
-          inputs: fullPrompt,
+          inputs: `Summarize this therapy session: ${transcript}`,
           parameters: {
             max_new_tokens: maxTokens,
             temperature: temperature,
             do_sample: true,
             top_p: 0.9,
-            repetition_penalty: 1.1,
-            stop: ['<|eot_id|>', '\n\nTranscript:', '\n\nUser:']
+            repetition_penalty: 1.1
           }
         });
 
         if (result && result.generated_text) {
-          const response = this.extractSummaryResponse(result.generated_text, fullPrompt);
+          const response = this.extractSummaryResponse(result.generated_text, `Summarize this therapy session: ${transcript}`);
           const parsedSummary = this.parseSummaryResponse(response);
           
           return {

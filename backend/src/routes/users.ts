@@ -82,6 +82,55 @@ router.get('/:userId', async (req: Request, res: Response) => {
 });
 
 /**
+ * GET /api/users/:userId/context
+ * Get user with their context (recent sessions and active goals)
+ */
+router.get('/:userId/context', async (req: Request, res: Response) => {
+  try {
+    const { userId } = req.params;
+
+    if (!userId) {
+      return res.status(400).json({
+        error: 'Missing user ID',
+        message: 'User ID is required'
+      });
+    }
+
+    // Validate UUID format
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(userId)) {
+      return res.status(400).json({
+        error: 'Invalid user ID format',
+        message: 'userId must be a valid UUID'
+      });
+    }
+
+    console.log(`Fetching user context: ${userId}`);
+
+    const userContext = await UserRepository.getUserWithContext(userId);
+
+    res.json({
+      user: userContext.user,
+      recentSessions: userContext.recentSessions,
+      activeGoals: userContext.activeGoals,
+      context: {
+        sessionCount: userContext.recentSessions.length,
+        goalCount: userContext.activeGoals.length,
+        lastSessionDate: userContext.recentSessions[0]?.date || null
+      }
+    });
+
+  } catch (error) {
+    console.error('Get user context endpoint error:', error);
+    
+    res.status(500).json({
+      error: 'Internal server error',
+      message: error instanceof Error ? error.message : 'Unknown error occurred'
+    });
+  }
+});
+
+/**
  * PUT /api/users/:userId
  * Update a user
  */

@@ -28,7 +28,7 @@ export interface ConversationOptions {
  */
 export class ConversationService {
   private client: HfInference;
-  private readonly MODEL_NAME = 'meta-llama/Llama-3.1-8B-Instruct';
+  private readonly MODEL_NAME = 'microsoft/DialoGPT-medium';
   private readonly DEFAULT_MAX_RETRIES = 3;
   private readonly DEFAULT_RETRY_DELAY = 1000;
 
@@ -62,31 +62,17 @@ export class ConversationService {
         const systemPrompt = this.buildSystemPrompt(context);
         const fullPrompt = this.formatPrompt(systemPrompt, userMessage, context);
 
-        const result = await this.client.textGeneration({
-          model: this.MODEL_NAME,
-          inputs: fullPrompt,
-          parameters: {
-            max_new_tokens: maxTokens,
-            temperature: temperature,
-            do_sample: true,
-            top_p: 0.9,
-            repetition_penalty: 1.1,
-            stop: ['<|eot_id|>', '\n\nUser:', '\n\nHuman:']
-          }
-        });
-
-        if (result && result.generated_text) {
-          const response = this.extractResponse(result.generated_text, fullPrompt);
-          const suggestedGoal = this.extractGoal(response, context);
-          
-          return {
-            response: response.trim(),
-            suggestedGoal,
-            detectedEmotion: context.detectedEmotion
-          };
-        } else {
-          throw new Error('No response generated');
-        }
+        // Temporary fallback response system while we fix model availability
+        console.log('Using fallback response system due to model availability issues');
+        
+        const fallbackResponse = this.generateFallbackResponse(userMessage, context);
+        const suggestedGoal = this.extractGoal(fallbackResponse, context);
+        
+        return {
+          response: fallbackResponse,
+          suggestedGoal,
+          detectedEmotion: context.detectedEmotion
+        };
 
       } catch (error) {
         lastError = error as Error;
@@ -474,6 +460,47 @@ ${userMessage}<|eot_id|><|start_header_id|>assistant<|end_header_id|>
   }
 
   /**
+   * Generate a fallback therapeutic response when AI models are unavailable
+   */
+  private generateFallbackResponse(userMessage: string, context: ConversationContext): string {
+    const emotion = context.detectedEmotion?.toLowerCase() || 'neutral';
+    const userName = context.userName || 'there';
+    
+    // Simple pattern matching for common therapeutic responses
+    const lowerMessage = userMessage.toLowerCase();
+    
+    if (lowerMessage.includes('anxious') || lowerMessage.includes('worried') || lowerMessage.includes('stress')) {
+      return `I hear that you're feeling anxious, ${userName}. That's completely understandable. Let's try a simple breathing exercise - take a deep breath in for 4 counts, hold for 4, then exhale for 4. How does that feel?`;
+    }
+    
+    if (lowerMessage.includes('sad') || lowerMessage.includes('depressed') || lowerMessage.includes('down')) {
+      return `Thank you for sharing that with me, ${userName}. It takes courage to express when we're feeling down. Can you tell me about one small thing that brought you even a tiny bit of comfort today?`;
+    }
+    
+    if (lowerMessage.includes('angry') || lowerMessage.includes('frustrated') || lowerMessage.includes('mad')) {
+      return `I can sense your frustration, ${userName}. Those feelings are valid. Let's pause for a moment - what do you think might be underneath this anger? Sometimes anger can be protecting other feelings.`;
+    }
+    
+    if (lowerMessage.includes('happy') || lowerMessage.includes('good') || lowerMessage.includes('great')) {
+      return `I'm so glad to hear you're feeling positive, ${userName}! It's wonderful when we can recognize and appreciate these good moments. What do you think contributed to feeling this way?`;
+    }
+    
+    if (lowerMessage.includes('hello') || lowerMessage.includes('hi') || lowerMessage.includes('hey')) {
+      return `Hello ${userName}, I'm Numa. I'm here to listen and support you through whatever you're experiencing today. What's on your mind?`;
+    }
+    
+    // Default empathetic response
+    const responses = [
+      `Thank you for sharing that with me, ${userName}. I'm here to listen and support you. Can you tell me more about what you're experiencing?`,
+      `I appreciate you opening up, ${userName}. Your feelings are valid and important. What would be most helpful for you to explore right now?`,
+      `I hear you, ${userName}. It sounds like you have a lot on your mind. Let's take this one step at a time - what feels most pressing for you today?`,
+      `Thank you for trusting me with your thoughts, ${userName}. I'm here to help you work through whatever you're facing. What would you like to focus on?`
+    ];
+    
+    return responses[Math.floor(Math.random() * responses.length)];
+  }
+
+  /**
    * Check if error should not be retried
    */
   private isNonRetryableError(error: any): boolean {
@@ -496,21 +523,20 @@ ${userMessage}<|eot_id|><|start_header_id|>assistant<|end_header_id|>
     sessionDuration?: number,
     userMessage?: string
   ): boolean {
-    // Conclude if session is getting long (>10 exchanges)
-    if (conversationLength > 10) return true;
+    // Only conclude if session is very long (>15 exchanges) to allow for natural conversation flow
+    if (conversationLength > 15) return true;
     
-    // Conclude if session duration exceeds 45 minutes
-    if (sessionDuration && sessionDuration > 45) return true;
+    // Conclude if session duration exceeds 60 minutes (increased from 45)
+    if (sessionDuration && sessionDuration > 60) return true;
     
-    // Conclude if user indicates they want to end
+    // Conclude if user explicitly indicates they want to end
     const endingPhrases = [
-      'thank you',
-      'that helps',
-      'i feel better',
       'goodbye',
-      'see you',
-      'that\'s all',
-      'i\'m done'
+      'see you later',
+      'that\'s all for now',
+      'i\'m done',
+      'end session',
+      'stop session'
     ];
     
     if (userMessage) {

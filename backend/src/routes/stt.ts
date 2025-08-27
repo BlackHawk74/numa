@@ -45,15 +45,11 @@ router.post('/', upload.single('audio'), async (req: Request, res: Response) => 
       });
     }
 
-    // Convert Buffer to ArrayBuffer
-    const audioBuffer = new ArrayBuffer(req.file.buffer.length);
-    const view = new Uint8Array(audioBuffer);
-    for (let i = 0; i < req.file.buffer.length; i++) {
-      view[i] = req.file.buffer[i];
-    }
+    // Create a Blob with the proper MIME type from the uploaded file
+    const audioBlob = new Blob([req.file.buffer], { type: req.file.mimetype });
 
     // Validate audio input
-    const validation = speechToTextService.validateAudioInput(audioBuffer);
+    const validation = speechToTextService.validateAudioInput(audioBlob);
     if (!validation.valid) {
       return res.status(400).json({
         error: 'Invalid audio file',
@@ -68,7 +64,7 @@ router.post('/', upload.single('audio'), async (req: Request, res: Response) => 
     console.log(`Processing STT request: ${req.file.size} bytes, ${req.file.mimetype}`);
 
     // Perform speech-to-text conversion
-    const result = await speechToTextService.transcribeAudio(audioBuffer, {
+    const result = await speechToTextService.transcribeAudio(audioBlob, {
       language,
       maxRetries
     });

@@ -9,6 +9,7 @@ import therapyRoutes from './routes/therapy';
 import ttsRoutes from './routes/tts';
 import sessionsRoutes from './routes/sessions';
 import usersRoutes from './routes/users';
+import goalsRoutes from './routes/goals';
 
 // Import middleware
 import { errorHandler, notFoundHandler, requestLogger, rateLimiter } from './middleware/errorHandler';
@@ -69,6 +70,7 @@ app.use('/api/therapy', therapyRoutes);
 app.use('/api/tts', ttsRoutes);
 app.use('/api/sessions', sessionsRoutes);
 app.use('/api/users', usersRoutes);
+app.use('/api/goals', goalsRoutes);
 
 // Error handling middleware (must be after routes)
 app.use(notFoundHandler);

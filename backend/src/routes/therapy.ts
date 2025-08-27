@@ -71,13 +71,15 @@ router.post('/', async (req: Request, res: Response) => {
       currentSession = await SessionRepository.findById(sessionId);
     }
 
-    // Check if session should be concluded
-    const conversationLength = (currentSession?.transcript?.split('\n').length || 0) / 2; // Approximate exchange count
-    const shouldConclude = conversationService.shouldConcludeSession(
-      conversationLength,
-      currentSession?.duration_minutes,
-      message
-    );
+    // Check if session should be concluded (only for existing sessions with substantial content)
+    const conversationLength = currentSession?.transcript ? 
+      (currentSession.transcript.split('\n').filter(line => line.trim().length > 0).length / 2) : 0;
+    const shouldConclude = currentSession && conversationLength > 2 ? 
+      conversationService.shouldConcludeSession(
+        conversationLength,
+        currentSession?.duration_minutes,
+        message
+      ) : false;
 
     // Generate therapeutic response (use conclusion method if appropriate)
     const conversationResult = shouldConclude
