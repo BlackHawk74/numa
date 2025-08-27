@@ -46,12 +46,12 @@ export function GoalManager({ userId, className = '', onGoalUpdate }: GoalManage
 
   const handleCreateGoal = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!newGoalDescription.trim()) return;
 
     try {
       setCreating(true);
-      
+
       const goal = await GoalService.createGoal(
         userId,
         newGoalDescription.trim(),
@@ -81,7 +81,7 @@ export function GoalManager({ userId, className = '', onGoalUpdate }: GoalManage
   const handleCompleteGoal = async (goalId: string) => {
     try {
       const updatedGoal = await GoalService.completeGoal(goalId, 'Goal completed by user');
-      
+
       setGoals(prev => prev.map(g => g.id === goalId ? updatedGoal : g));
 
       if (onGoalUpdate) {
@@ -100,7 +100,7 @@ export function GoalManager({ userId, className = '', onGoalUpdate }: GoalManage
   const handleAddProgress = async (goalId: string, note: string) => {
     try {
       const updatedGoal = await GoalService.addProgressNote(goalId, note);
-      
+
       setGoals(prev => prev.map(g => g.id === goalId ? updatedGoal : g));
 
       if (onGoalUpdate) {
@@ -170,11 +170,10 @@ export function GoalManager({ userId, className = '', onGoalUpdate }: GoalManage
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`flex-1 py-2 px-3 text-sm font-medium rounded-md transition-colors ${
-                activeTab === tab
-                  ? 'bg-white text-blue-600 shadow-sm'
-                  : 'text-gray-500 hover:text-gray-700'
-              }`}
+              className={`flex-1 py-2 px-3 text-sm font-medium rounded-md transition-colors ${activeTab === tab
+                ? 'bg-white text-blue-600 shadow-sm'
+                : 'text-gray-500 hover:text-gray-700'
+                }`}
             >
               {tab.charAt(0).toUpperCase() + tab.slice(1)}
             </button>
@@ -199,7 +198,7 @@ export function GoalManager({ userId, className = '', onGoalUpdate }: GoalManage
                 required
               />
             </div>
-            
+
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Target Date (Optional)
@@ -279,7 +278,7 @@ function GoalCard({ goal, onComplete, onAddProgress }: GoalCardProps) {
 
   const handleAddProgress = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!progressNote.trim()) return;
 
     try {
@@ -308,9 +307,9 @@ function GoalCard({ goal, onComplete, onAddProgress }: GoalCardProps) {
               </span>
             )}
           </div>
-          
+
           <p className="text-gray-900 mb-2">{goal.description}</p>
-          
+
           <div className="text-xs text-gray-500">
             Created {new Date(goal.created_at).toLocaleDateString()}
           </div>
