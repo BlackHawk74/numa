@@ -115,12 +115,12 @@ export function GoalManager({ userId, className = '', onGoalUpdate }: GoalManage
 
   if (loading && goals.length === 0) {
     return (
-      <div className={`bg-white rounded-lg shadow-sm border p-6 ${className}`}>
+      <div className={`bg-white border border-gray-200 p-6 ${className}`}>
         <div className="animate-pulse">
-          <div className="h-6 bg-gray-200 rounded w-1/3 mb-4"></div>
+          <div className="h-4 bg-gray-200 w-1/3 mb-4"></div>
           <div className="space-y-3">
             {[1, 2, 3].map(i => (
-              <div key={i} className="h-20 bg-gray-100 rounded"></div>
+              <div key={i} className="h-16 bg-gray-100"></div>
             ))}
           </div>
         </div>
@@ -129,53 +129,53 @@ export function GoalManager({ userId, className = '', onGoalUpdate }: GoalManage
   }
 
   return (
-    <div className={`bg-white rounded-lg shadow-sm border ${className}`}>
-      <div className="p-6 border-b">
+    <div className={`bg-white border border-gray-200 ${className}`}>
+      <div className="p-4 border-b border-gray-200">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-gray-900">Goals & Progress</h3>
+          <h3 className="text-sm font-medium text-black uppercase tracking-wide">Goals</h3>
           <button
             onClick={() => setShowCreateForm(!showCreateForm)}
-            className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm"
+            className="px-3 py-1 bg-black text-white hover:bg-gray-800 transition-colors text-xs"
           >
-            {showCreateForm ? 'Cancel' : '+ New Goal'}
+            {showCreateForm ? 'Cancel' : 'New'}
           </button>
         </div>
 
         {statistics && (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm mb-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs mb-4">
             <div className="text-center">
-              <div className="text-2xl font-bold text-blue-600">{statistics.activeGoals}</div>
-              <div className="text-gray-500">Active</div>
+              <div className="text-lg font-light text-black">{statistics.activeGoals}</div>
+              <div className="text-gray-500 uppercase tracking-wide">Active</div>
             </div>
             <div className="text-center">
-              <div className="text-2xl font-bold text-green-600">{statistics.completedGoals}</div>
-              <div className="text-gray-500">Completed</div>
+              <div className="text-lg font-light text-black">{statistics.completedGoals}</div>
+              <div className="text-gray-500 uppercase tracking-wide">Complete</div>
             </div>
             <div className="text-center">
-              <div className="text-2xl font-bold text-purple-600">
+              <div className="text-lg font-light text-black">
                 {GoalService.calculateCompletionRate(statistics)}%
               </div>
-              <div className="text-gray-500">Success Rate</div>
+              <div className="text-gray-500 uppercase tracking-wide">Success</div>
             </div>
             <div className="text-center">
-              <div className="text-2xl font-bold text-red-600">{statistics.overdueTasks}</div>
-              <div className="text-gray-500">Overdue</div>
+              <div className="text-lg font-light text-black">{statistics.overdueTasks}</div>
+              <div className="text-gray-500 uppercase tracking-wide">Overdue</div>
             </div>
           </div>
         )}
 
         {/* Tab Navigation */}
-        <div className="flex space-x-1 bg-gray-100 rounded-lg p-1">
+        <div className="flex space-x-1 border border-gray-200">
           {(['active', 'completed', 'all'] as const).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`flex-1 py-2 px-3 text-sm font-medium rounded-md transition-colors ${activeTab === tab
-                ? 'bg-white text-blue-600 shadow-sm'
-                : 'text-gray-500 hover:text-gray-700'
+              className={`flex-1 py-2 px-3 text-xs font-medium uppercase tracking-wide transition-colors ${activeTab === tab
+                ? 'bg-black text-white'
+                : 'text-gray-500 hover:text-gray-700 bg-white'
                 }`}
             >
-              {tab.charAt(0).toUpperCase() + tab.slice(1)}
+              {tab}
             </button>
           ))}
         </div>
@@ -184,30 +184,30 @@ export function GoalManager({ userId, className = '', onGoalUpdate }: GoalManage
       <div className="p-6">
         {/* Create Goal Form */}
         {showCreateForm && (
-          <form onSubmit={handleCreateGoal} className="mb-6 p-4 bg-gray-50 rounded-lg">
+          <form onSubmit={handleCreateGoal} className="mb-6 p-4 border border-gray-200">
             <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Goal Description
+              <label className="block text-xs text-gray-700 mb-2 uppercase tracking-wide">
+                Description
               </label>
               <textarea
                 value={newGoalDescription}
                 onChange={(e) => setNewGoalDescription(e.target.value)}
-                placeholder="Describe your therapy goal..."
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                placeholder="Describe your goal"
+                className="w-full px-3 py-2 border border-gray-300 focus:border-black focus:outline-none"
                 rows={3}
                 required
               />
             </div>
 
             <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Target Date (Optional)
+              <label className="block text-xs text-gray-700 mb-2 uppercase tracking-wide">
+                Target Date
               </label>
               <input
                 type="date"
                 value={newGoalTargetDate}
                 onChange={(e) => setNewGoalTargetDate(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="px-3 py-2 border border-gray-300 focus:border-black focus:outline-none"
               />
             </div>
 
@@ -215,14 +215,14 @@ export function GoalManager({ userId, className = '', onGoalUpdate }: GoalManage
               <button
                 type="submit"
                 disabled={creating || !newGoalDescription.trim()}
-                className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50"
+                className="px-3 py-1 bg-black text-white hover:bg-gray-800 transition-colors disabled:opacity-50 text-xs"
               >
-                {creating ? 'Creating...' : 'Create Goal'}
+                {creating ? 'Creating...' : 'Create'}
               </button>
               <button
                 type="button"
                 onClick={() => setShowCreateForm(false)}
-                className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
+                className="px-3 py-1 text-gray-600 hover:text-black transition-colors text-xs"
               >
                 Cancel
               </button>
@@ -231,7 +231,7 @@ export function GoalManager({ userId, className = '', onGoalUpdate }: GoalManage
         )}
 
         {error && (
-          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+          <div className="mb-4 p-3 border border-gray-300 text-gray-700 text-sm">
             {error}
           </div>
         )}
@@ -239,10 +239,9 @@ export function GoalManager({ userId, className = '', onGoalUpdate }: GoalManage
         {/* Goals List */}
         {goals.length === 0 ? (
           <div className="text-center py-8">
-            <div className="text-gray-400 mb-2">🎯</div>
-            <p className="text-gray-500">No goals yet</p>
-            <p className="text-sm text-gray-400 mt-1">
-              {activeTab === 'active' ? 'Create your first therapy goal' : `No ${activeTab} goals`}
+            <p className="text-gray-500 text-sm">No goals</p>
+            <p className="text-xs text-gray-400 mt-1">
+              {activeTab === 'active' ? 'Create your first goal' : `No ${activeTab} goals`}
             </p>
           </div>
         ) : (
@@ -294,38 +293,42 @@ function GoalCard({ goal, onComplete, onAddProgress }: GoalCardProps) {
   };
 
   return (
-    <div className="border rounded-lg p-4 hover:shadow-sm transition-shadow">
+    <div className="border border-gray-200 p-3 hover:border-black transition-colors">
       <div className="flex items-start justify-between mb-3">
         <div className="flex-1">
           <div className="flex items-center gap-2 mb-2">
-            <span className={`px-2 py-1 text-xs rounded-full ${GoalService.getStatusColor(goal.status)}`}>
+            <span className={`px-1 py-0 text-xs border ${
+              goal.status === 'active' ? 'border-black text-black' : 
+              goal.status === 'completed' ? 'border-gray-300 text-gray-600' :
+              'border-gray-300 text-gray-600'
+            }`}>
               {goal.status}
             </span>
             {goal.target_date && (
-              <span className={`text-xs ${priorityColor}`}>
+              <span className="text-xs text-gray-500">
                 {GoalService.formatTargetDate(goal.target_date)}
               </span>
             )}
           </div>
 
-          <p className="text-gray-900 mb-2">{goal.description}</p>
+          <p className="text-black mb-2 text-sm">{goal.description}</p>
 
-          <div className="text-xs text-gray-500">
-            Created {new Date(goal.created_at).toLocaleDateString()}
+          <div className="text-xs text-gray-400">
+            {new Date(goal.created_at).toLocaleDateString()}
           </div>
         </div>
 
         {goal.status === 'active' && (
-          <div className="flex gap-2 ml-4">
+          <div className="flex gap-1 ml-4">
             <button
               onClick={() => setShowProgressForm(!showProgressForm)}
-              className="text-xs px-2 py-1 text-blue-600 hover:bg-blue-50 rounded transition-colors"
+              className="text-xs px-2 py-1 text-gray-600 hover:text-black border border-gray-300 hover:border-black transition-colors"
             >
-              Add Progress
+              Progress
             </button>
             <button
               onClick={onComplete}
-              className="text-xs px-2 py-1 text-green-600 hover:bg-green-50 rounded transition-colors"
+              className="text-xs px-2 py-1 text-gray-600 hover:text-black border border-gray-300 hover:border-black transition-colors"
             >
               Complete
             </button>
@@ -336,10 +339,10 @@ function GoalCard({ goal, onComplete, onAddProgress }: GoalCardProps) {
       {/* Progress Notes */}
       {goal.progress_notes && goal.progress_notes.length > 0 && (
         <div className="mb-3">
-          <div className="text-xs font-medium text-gray-700 mb-1">Progress Notes:</div>
+          <div className="text-xs text-gray-500 mb-1 uppercase tracking-wide">Notes</div>
           <div className="space-y-1">
             {goal.progress_notes.slice(-3).map((note, index) => (
-              <div key={index} className="text-xs text-gray-600 bg-gray-50 p-2 rounded">
+              <div key={index} className="text-xs text-gray-600 border border-gray-200 p-2">
                 {note}
               </div>
             ))}
@@ -349,12 +352,12 @@ function GoalCard({ goal, onComplete, onAddProgress }: GoalCardProps) {
 
       {/* Add Progress Form */}
       {showProgressForm && (
-        <form onSubmit={handleAddProgress} className="mt-3 p-3 bg-gray-50 rounded">
+        <form onSubmit={handleAddProgress} className="mt-3 p-3 border border-gray-200">
           <textarea
             value={progressNote}
             onChange={(e) => setProgressNote(e.target.value)}
-            placeholder="Add a progress note..."
-            className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+            placeholder="Add progress note"
+            className="w-full px-2 py-1 text-sm border border-gray-300 focus:border-black focus:outline-none"
             rows={2}
             required
           />
@@ -362,14 +365,14 @@ function GoalCard({ goal, onComplete, onAddProgress }: GoalCardProps) {
             <button
               type="submit"
               disabled={submitting || !progressNote.trim()}
-              className="text-xs px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors disabled:opacity-50"
+              className="text-xs px-2 py-1 bg-black text-white hover:bg-gray-800 transition-colors disabled:opacity-50"
             >
-              {submitting ? 'Adding...' : 'Add Note'}
+              {submitting ? 'Adding...' : 'Add'}
             </button>
             <button
               type="button"
               onClick={() => setShowProgressForm(false)}
-              className="text-xs px-3 py-1 text-gray-600 hover:text-gray-800 transition-colors"
+              className="text-xs px-2 py-1 text-gray-600 hover:text-black transition-colors"
             >
               Cancel
             </button>

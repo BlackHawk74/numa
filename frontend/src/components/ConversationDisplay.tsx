@@ -28,78 +28,81 @@ export function ConversationDisplay({ className = '', maxMessages = 10 }: Conver
   };
 
   const getEmotionColor = (emotion?: string) => {
+    // Use varying shades of gray for different emotions in monochrome design
     switch (emotion?.toLowerCase()) {
       case 'happy':
       case 'joy':
-        return 'text-green-600';
+        return 'text-gray-700';
       case 'sad':
       case 'sadness':
-        return 'text-blue-600';
+        return 'text-gray-600';
       case 'angry':
       case 'anger':
-        return 'text-red-600';
+        return 'text-charcoal';
       case 'anxious':
       case 'anxiety':
       case 'fear':
-        return 'text-yellow-600';
+        return 'text-gray-500';
       case 'calm':
       case 'peaceful':
-        return 'text-therapy-accent';
-      case 'surprised':
-        return 'text-purple-600';
-      case 'disgusted':
-        return 'text-orange-600';
-      default:
         return 'text-gray-600';
+      case 'surprised':
+        return 'text-gray-500';
+      case 'disgusted':
+        return 'text-gray-600';
+      default:
+        return 'text-gray-500';
     }
   };
 
   const getEmotionBgColor = (emotion?: string) => {
+    // Use subtle gray variations for emotion backgrounds
     switch (emotion?.toLowerCase()) {
       case 'happy':
       case 'joy':
-        return 'bg-green-50 border-green-200';
+        return 'bg-gray-50 border-gray-200';
       case 'sad':
       case 'sadness':
-        return 'bg-blue-50 border-blue-200';
+        return 'bg-gray-50 border-gray-200';
       case 'angry':
       case 'anger':
-        return 'bg-red-50 border-red-200';
+        return 'bg-gray-100 border-gray-300';
       case 'anxious':
       case 'anxiety':
       case 'fear':
-        return 'bg-yellow-50 border-yellow-200';
+        return 'bg-gray-50 border-gray-200';
       case 'calm':
       case 'peaceful':
-        return 'bg-therapy-blue/10 border-therapy-accent/20';
+        return 'bg-white border-gray-200';
       case 'surprised':
-        return 'bg-purple-50 border-purple-200';
+        return 'bg-gray-50 border-gray-200';
       case 'disgusted':
-        return 'bg-orange-50 border-orange-200';
+        return 'bg-gray-50 border-gray-200';
       default:
-        return 'bg-therapy-gray border-gray-200';
+        return 'bg-white border-gray-200';
     }
   };
 
-  const getEmotionIcon = (emotion?: string) => {
+  const getEmotionIndicator = (emotion?: string) => {
+    // Use simple dots or shapes for emotion indicators in monochrome design
     switch (emotion?.toLowerCase()) {
       case 'happy':
       case 'joy':
-        return '😊';
+        return '●';
       case 'sad':
       case 'sadness':
-        return '😢';
+        return '○';
       case 'angry':
       case 'anger':
-        return '😠';
+        return '■';
       case 'anxious':
       case 'anxiety':
-        return '😰';
+        return '△';
       case 'calm':
       case 'peaceful':
-        return '😌';
+        return '◇';
       default:
-        return '';
+        return '·';
     }
   };
 
@@ -121,82 +124,88 @@ export function ConversationDisplay({ className = '', maxMessages = 10 }: Conver
     return (
       <div className={`flex items-center justify-center h-32 ${className}`}>
         <div className="text-center text-gray-500">
-          <p className="text-lg mb-2">Welcome to Numa</p>
-          <p className="text-sm">Start a conversation by holding the microphone button</p>
+          <p className="text-lg font-light text-charcoal mb-2">Welcome to Numa</p>
+          <p className="text-sm text-gray-500">Start a conversation by clicking the microphone</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className={`flex flex-col space-y-4 ${className}`}>
+    <div className={`flex flex-col space-y-6 ${className}`}>
       {/* Current mood indicator */}
       {currentMood && (
         <div className="flex items-center justify-center mb-2">
-          <div className={`px-3 py-1 rounded-full text-xs font-medium ${getEmotionBgColor(currentMood)} ${getEmotionColor(currentMood)}`}>
-            <span className="mr-1">{getEmotionIcon(currentMood)}</span>
-            Current mood: {currentMood}
+          <div className={`px-4 py-2 rounded-lg text-xs font-medium border ${getEmotionBgColor(currentMood)} ${getEmotionColor(currentMood)}`}>
+            <span className="mr-2 text-base">{getEmotionIndicator(currentMood)}</span>
+            <span className="uppercase tracking-wide">Current mood: {currentMood}</span>
           </div>
         </div>
       )}
       
-      <div className="flex-1 overflow-y-auto max-h-96 space-y-4 px-4">
-        {recentMessages.map((message: Message) => (
-          <div
-            key={message.id}
-            className={`flex ${message.speaker === 'user' ? 'justify-end' : 'justify-start'}`}
-          >
-            <div
-              className={`
-                max-w-xs lg:max-w-md px-4 py-3 rounded-2xl transition-all duration-300
-                ${message.speaker === 'user'
-                  ? 'bg-therapy-accent text-white rounded-br-sm'
-                  : `text-gray-800 rounded-bl-sm border ${getEmotionBgColor(message.emotion)}`
-                }
-              `}
-            >
-              {/* Message content */}
-              <p className="text-sm leading-relaxed">{message.content}</p>
-              
-              {/* Message metadata */}
-              <div className={`
-                flex items-center justify-between mt-2 text-xs
-                ${message.speaker === 'user' ? 'text-blue-100' : 'text-gray-500'}
-              `}>
-                <span>{formatTime(message.timestamp)}</span>
+      <div className="flex-1 overflow-y-auto max-h-96 space-y-6">
+        {recentMessages.map((message: Message, index) => (
+          <div key={message.id}>
+            <div className={`flex ${message.speaker === 'user' ? 'justify-end' : 'justify-start'}`}>
+              <div className={`max-w-xs lg:max-w-md ${message.speaker === 'user' ? 'text-right' : 'text-left'}`}>
+                {/* Speaker label */}
+                <div className="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wide">
+                  {message.speaker === 'user' ? 'You' : 'Numa'}
+                </div>
                 
-                {/* Emotion indicator for AI messages */}
-                {message.speaker === 'numa' && message.emotion && (
-                  <div className="flex items-center space-x-1">
-                    <span>{getEmotionIcon(message.emotion)}</span>
-                    <span className={getEmotionColor(message.emotion)}>
-                      {message.emotion}
+                {/* Message content */}
+                <div className={`
+                  px-0 py-0 transition-all duration-300
+                  ${message.speaker === 'user' ? 'text-charcoal' : 'text-charcoal'}
+                `}>
+                  <p className="text-base leading-relaxed font-light">{message.content}</p>
+                </div>
+                
+                {/* Message metadata */}
+                <div className="flex items-center justify-between mt-3 text-xs text-gray-400">
+                  <span>{formatTime(message.timestamp)}</span>
+                  
+                  {/* Emotion indicator for AI messages */}
+                  {message.speaker === 'numa' && message.emotion && (
+                    <div className="flex items-center space-x-2">
+                      <span className="text-base">{getEmotionIndicator(message.emotion)}</span>
+                      <span className={`${getEmotionColor(message.emotion)} uppercase tracking-wide font-medium`}>
+                        {message.emotion}
+                      </span>
+                    </div>
+                  )}
+                  
+                  {/* Confidence indicator for user messages */}
+                  {message.speaker === 'user' && message.confidence && (
+                    <span className="text-gray-400 font-mono">
+                      {Math.round(message.confidence * 100)}%
                     </span>
-                  </div>
-                )}
-                
-                {/* Confidence indicator for user messages */}
-                {message.speaker === 'user' && message.confidence && (
-                  <span className="text-blue-100">
-                    {Math.round(message.confidence * 100)}%
-                  </span>
-                )}
+                  )}
+                </div>
               </div>
             </div>
+            
+            {/* Subtle divider between messages */}
+            {index < recentMessages.length - 1 && (
+              <div className="mt-6 border-b border-gray-100"></div>
+            )}
           </div>
         ))}
         
         {/* Processing indicator */}
         {conversationState.isProcessing && (
           <div className="flex justify-start">
-            <div className="bg-therapy-gray text-gray-800 px-4 py-3 rounded-2xl rounded-bl-sm border border-gray-200">
-              <div className="flex items-center space-x-2">
+            <div className="bg-gray-50 text-charcoal px-0 py-0 border-l-2 border-gray-200 pl-4">
+              <div className="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wide">
+                Numa
+              </div>
+              <div className="flex items-center space-x-3">
                 <div className="flex space-x-1">
-                  <div className="w-2 h-2 bg-therapy-accent rounded-full animate-bounce" />
-                  <div className="w-2 h-2 bg-therapy-accent rounded-full animate-bounce" style={{ animationDelay: '0.1s' }} />
-                  <div className="w-2 h-2 bg-therapy-accent rounded-full animate-bounce" style={{ animationDelay: '0.2s' }} />
+                  <div className="w-2 h-2 bg-charcoal rounded-full animate-bounce" />
+                  <div className="w-2 h-2 bg-charcoal rounded-full animate-bounce" style={{ animationDelay: '0.1s' }} />
+                  <div className="w-2 h-2 bg-charcoal rounded-full animate-bounce" style={{ animationDelay: '0.2s' }} />
                 </div>
-                <span className="text-sm text-gray-600">Numa is thinking...</span>
+                <span className="text-sm text-gray-500 font-light">Thinking...</span>
               </div>
             </div>
           </div>
@@ -205,10 +214,13 @@ export function ConversationDisplay({ className = '', maxMessages = 10 }: Conver
         {/* Audio processing indicator */}
         {state.audioState.isRecording && (
           <div className="flex justify-end">
-            <div className="bg-therapy-accent/10 text-therapy-accent px-4 py-3 rounded-2xl rounded-br-sm border border-therapy-accent/20">
-              <div className="flex items-center space-x-2">
-                <div className="w-2 h-2 bg-therapy-accent rounded-full animate-pulse" />
-                <span className="text-sm">Recording...</span>
+            <div className="bg-gray-50 text-charcoal px-0 py-0 border-r-2 border-gray-200 pr-4 text-right">
+              <div className="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wide">
+                You
+              </div>
+              <div className="flex items-center justify-end space-x-3">
+                <span className="text-sm text-gray-500 font-light">Recording...</span>
+                <div className="w-2 h-2 bg-charcoal rounded-full animate-pulse" />
               </div>
             </div>
           </div>
@@ -219,8 +231,10 @@ export function ConversationDisplay({ className = '', maxMessages = 10 }: Conver
       
       {/* Session info */}
       {conversationState.currentSession && (
-        <div className="text-center text-xs text-gray-500 border-t pt-2">
-          Session started: {new Date(conversationState.currentSession.date).toLocaleString()}
+        <div className="text-center text-xs text-gray-400 border-t border-gray-100 pt-4">
+          <span className="font-mono">
+            Session started: {new Date(conversationState.currentSession.date).toLocaleString()}
+          </span>
         </div>
       )}
     </div>

@@ -32,7 +32,7 @@ graph TB
 
 **Frontend:**
 - React 18 with functional components and hooks
-- Tailwind CSS for styling
+- Tailwind CSS for minimalistic monochrome styling
 - Web Audio API for microphone access
 - Browser Web Speech API for TTS (primary)
 
@@ -50,6 +50,50 @@ graph TB
 **Database:**
 - Supabase (PostgreSQL) with real-time subscriptions
 
+## UI/UX Design Philosophy
+
+### Minimalistic Monochrome Aesthetic
+
+The interface follows a strict black and white design philosophy that promotes focus, reduces cognitive load, and creates a calming therapeutic environment through visual simplicity.
+
+#### Color Palette
+- **Primary**: Charcoal (#353839) for text and primary elements
+- **Secondary**: Pure White (#FFFFFF) for backgrounds and negative space
+- **Accent**: Grayscale variations (#6B7280, #9CA3AF, #D1D5DB) for subtle differentiation
+- **Interactive States**: Inverted colors (white on charcoal) for active/hover states
+
+#### Typography
+- **Primary Font**: System font stack for optimal performance and familiarity
+- **Hierarchy**: Achieved through font weight (300, 400, 600) and size variations
+- **Contrast**: High contrast charcoal (#353839) text on white backgrounds for accessibility
+- **Spacing**: Generous white space to create breathing room and focus
+
+#### Visual Elements
+- **Buttons**: Clean geometric shapes with subtle shadows using grayscale
+- **Microphone**: Minimalist circle design with charcoal (#353839) styling
+- **Waveforms**: Simple line-based visualizations in varying gray tones
+- **Dividers**: Thin gray lines (#D1D5DB) for content separation
+- **Icons**: Simple, geometric icons using stroke-based design in charcoal
+
+#### Layout Principles
+- **Centered Design**: All primary interactions centered on screen
+- **Minimal UI**: Only essential elements visible at any time
+- **Progressive Disclosure**: Information revealed as needed
+- **Consistent Spacing**: 8px grid system for all margins and padding
+- **Responsive**: Mobile-first approach with touch-friendly targets
+
+#### Animation and Transitions
+- **Subtle Movements**: Gentle fade-ins and scale transitions
+- **Duration**: 200-300ms for micro-interactions
+- **Easing**: Natural easing curves (ease-out) for organic feel
+- **Purpose-Driven**: Animations only to provide feedback or guide attention
+
+#### Accessibility Considerations
+- **High Contrast**: Exceeds WCAG AAA standards with charcoal/white palette
+- **Focus States**: Clear visual indicators using inverted colors
+- **Screen Readers**: Semantic HTML with proper ARIA labels
+- **Keyboard Navigation**: Full keyboard accessibility for all interactions
+
 ## Components and Interfaces
 
 ### Frontend Components
@@ -60,20 +104,23 @@ graph TB
 - Handles routing and authentication
 
 #### 2. VoiceInterface Component
-- Central microphone button with press-and-hold functionality
-- Waveform visualization during recording
+- Central minimalist microphone button (charcoal circle on white background)
+- Press-and-hold functionality with subtle scale animation
+- Monochrome waveform visualization using varying gray line weights
+- Clean recording states: idle (charcoal outline), active (filled charcoal), processing (pulsing gray)
 - Audio recording using MediaRecorder API
 - Integration with browser Web Speech API for TTS
 
 #### 3. ConversationDisplay Component
-- Real-time subtitle display for user and Numa
-- Conversation history with timestamps
-- Emotion indicators based on sentiment analysis
+- Real-time subtitle display for user and Numa with minimalistic typography
+- Conversation history with clean timestamps
+- Subtle emotion indicators using monochrome visual cues (opacity, weight, spacing)
 
 #### 4. AudioProcessor Component
-- Handles audio recording and playback
+- Handles audio recording and playback with minimal visual feedback
 - Manages audio format conversion (WebM to WAV)
 - Implements audio quality optimization
+- Provides subtle loading states using monochrome progress indicators
 
 ### Backend API Endpoints
 
@@ -162,6 +209,89 @@ CREATE TABLE goals (
     target_date DATE,
     progress_notes TEXT[]
 );
+```
+
+### Component Design Specifications
+
+#### Microphone Button Design
+```css
+/* Base State */
+.microphone-button {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: white;
+  border: 2px solid #353839;
+  transition: all 200ms ease-out;
+}
+
+/* Active State */
+.microphone-button:active {
+  background: #353839;
+  transform: scale(0.95);
+}
+
+/* Recording State */
+.microphone-button.recording {
+  background: #353839;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+```
+
+#### Conversation Display Layout
+```css
+.conversation-container {
+  max-width: 600px;
+  margin: 0 auto;
+  padding: 2rem 1rem;
+  background: white;
+}
+
+.message {
+  margin-bottom: 1.5rem;
+  padding: 1rem 0;
+  border-bottom: 1px solid #D1D5DB;
+  color: #353839;
+}
+
+.message.user {
+  text-align: right;
+  font-weight: 300;
+}
+
+.message.numa {
+  text-align: left;
+  font-weight: 400;
+}
+
+.timestamp {
+  font-size: 0.75rem;
+  color: #6B7280;
+  margin-top: 0.5rem;
+}
+```
+
+#### Waveform Visualization
+```css
+.waveform {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 40px;
+  gap: 2px;
+}
+
+.waveform-bar {
+  width: 2px;
+  background: #353839;
+  opacity: 0.3;
+  transition: all 100ms ease-out;
+}
+
+.waveform-bar.active {
+  opacity: 1;
+  transform: scaleY(var(--amplitude));
+}
 ```
 
 ### Frontend State Management

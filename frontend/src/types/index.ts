@@ -69,6 +69,13 @@ export interface AppState {
   conversationState: ConversationState;
   currentSession?: Session;
   goals: Goal[];
+  globalError?: import('../utils/errorHandling').ErrorInfo;
+  isOnline: boolean;
+  retryState?: {
+    operation: string;
+    attempt: number;
+    maxAttempts: number;
+  };
 }
 
 // API Response types

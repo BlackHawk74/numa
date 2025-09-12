@@ -64,6 +64,20 @@ app.get('/health/database', async (req, res) => {
   }
 });
 
+// Connectivity test endpoint for frontend
+app.head('/health', (req, res) => {
+  res.status(200).end();
+});
+
+// Connectivity test endpoint with minimal response
+app.get('/health/connectivity', (req, res) => {
+  res.json({
+    status: 'connected',
+    timestamp: new Date().toISOString(),
+    server: 'numa-backend'
+  });
+});
+
 // API Routes
 app.use('/api/stt', sttRoutes);
 app.use('/api/therapy', therapyRoutes);

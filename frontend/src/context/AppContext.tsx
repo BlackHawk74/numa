@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useReducer, ReactNode } from 'react';
 import { AppState, AudioState, ConversationState, Message, Session, Goal, User, SpeechPlaybackControls } from '../types';
+import { ErrorInfo } from '../utils/errorHandling';
 
 // Initial states
 const initialAudioState: AudioState = {
@@ -25,6 +26,9 @@ const initialAppState: AppState = {
   conversationState: initialConversationState,
   currentSession: undefined,
   goals: [],
+  globalError: undefined,
+  isOnline: navigator.onLine,
+  retryState: undefined,
 };
 
 // Action types
@@ -44,7 +48,10 @@ type AppAction =
   | { type: 'SET_CURRENT_SESSION'; payload: Session | undefined }
   | { type: 'SET_GOALS'; payload: Goal[] }
   | { type: 'CLEAR_MESSAGES' }
-  | { type: 'RESET_STATE' };
+  | { type: 'RESET_STATE' }
+  | { type: 'SET_GLOBAL_ERROR'; payload: ErrorInfo | undefined }
+  | { type: 'SET_ONLINE_STATUS'; payload: boolean }
+  | { type: 'SET_RETRY_STATE'; payload: { operation: string; attempt: number; maxAttempts: number } | undefined };
 
 // Reducer function
 function appReducer(state: AppState, action: AppAction): AppState {
@@ -151,6 +158,15 @@ function appReducer(state: AppState, action: AppAction): AppState {
     
     case 'RESET_STATE':
       return initialAppState;
+    
+    case 'SET_GLOBAL_ERROR':
+      return { ...state, globalError: action.payload };
+    
+    case 'SET_ONLINE_STATUS':
+      return { ...state, isOnline: action.payload };
+    
+    case 'SET_RETRY_STATE':
+      return { ...state, retryState: action.payload };
     
     default:
       return state;

@@ -48,12 +48,12 @@ export function UserDashboard({ user, onStartSession, className = '' }: UserDash
 
   if (loading) {
     return (
-      <div className={`space-y-6 ${className}`}>
-        <div className="bg-white rounded-lg shadow-sm border p-6">
+      <div className={`space-y-8 ${className}`}>
+        <div className="bg-white border border-gray-200 p-8">
           <div className="animate-pulse">
-            <div className="h-8 bg-gray-200 rounded w-1/3 mb-4"></div>
-            <div className="h-4 bg-gray-200 rounded w-2/3 mb-2"></div>
-            <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+            <div className="h-8 bg-gray-100 w-1/3 mb-6"></div>
+            <div className="h-4 bg-gray-100 w-2/3 mb-3"></div>
+            <div className="h-4 bg-gray-100 w-1/2"></div>
           </div>
         </div>
       </div>
@@ -62,13 +62,13 @@ export function UserDashboard({ user, onStartSession, className = '' }: UserDash
 
   if (error) {
     return (
-      <div className={`bg-white rounded-lg shadow-sm border p-6 ${className}`}>
+      <div className={`bg-white border border-gray-200 p-8 ${className}`}>
         <div className="text-center">
-          <div className="text-red-500 mb-2">⚠️</div>
-          <p className="text-gray-600 mb-4">{error}</p>
+          <div className="text-charcoal mb-4 text-2xl">⚠</div>
+          <p className="text-gray-600 mb-6 font-light">{error}</p>
           <button
             onClick={loadUserContext}
-            className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+            className="px-6 py-3 bg-charcoal text-white hover:bg-charcoal-light transition-colors duration-200 font-medium uppercase tracking-wide text-sm"
           >
             Try Again
           </button>
@@ -80,18 +80,18 @@ export function UserDashboard({ user, onStartSession, className = '' }: UserDash
   const therapyStreak = userContext ? UserService.calculateTherapyStreak(userContext.recentSessions) : 0;
 
   return (
-    <div className={`space-y-6 ${className}`}>
+    <div className={`space-y-12 ${className}`}>
       {/* Welcome Header */}
-      <div className="bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg shadow-sm text-white p-6">
+      <div className="bg-white border border-gray-200 p-8">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold mb-2">
-              Welcome back, {UserService.getDisplayName(user)}! 👋
+            <h1 className="text-2xl font-light text-charcoal mb-3">
+              {UserService.getDisplayName(user)}
             </h1>
-            <p className="text-blue-100">
+            <p className="text-gray-500 text-sm font-light">
               {userContext?.context.lastSessionDate 
                 ? `Last session: ${new Date(userContext.context.lastSessionDate).toLocaleDateString()}`
-                : 'Ready to start your therapy journey?'
+                : 'Ready to begin'
               }
             </p>
           </div>
@@ -99,9 +99,9 @@ export function UserDashboard({ user, onStartSession, className = '' }: UserDash
           {onStartSession && (
             <button
               onClick={onStartSession}
-              className="px-6 py-3 bg-white text-blue-600 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+              className="px-6 py-3 bg-charcoal text-white hover:bg-charcoal-light transition-colors duration-200 text-sm font-medium uppercase tracking-wide"
             >
-              Start New Session
+              New Session
             </button>
           )}
         </div>
@@ -109,58 +109,58 @@ export function UserDashboard({ user, onStartSession, className = '' }: UserDash
 
       {/* Quick Stats */}
       {userContext && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="bg-white rounded-lg shadow-sm border p-4 text-center">
-            <div className="text-2xl font-bold text-blue-600 mb-1">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          <div className="bg-white border border-gray-200 p-6 text-center">
+            <div className="text-3xl font-light text-charcoal mb-2">
               {userContext.context.sessionCount}
             </div>
-            <div className="text-sm text-gray-500">Recent Sessions</div>
+            <div className="text-xs text-gray-500 uppercase tracking-wide font-medium">Sessions</div>
           </div>
           
-          <div className="bg-white rounded-lg shadow-sm border p-4 text-center">
-            <div className="text-2xl font-bold text-green-600 mb-1">
+          <div className="bg-white border border-gray-200 p-6 text-center">
+            <div className="text-3xl font-light text-charcoal mb-2">
               {userContext.context.goalCount}
             </div>
-            <div className="text-sm text-gray-500">Active Goals</div>
+            <div className="text-xs text-gray-500 uppercase tracking-wide font-medium">Goals</div>
           </div>
           
-          <div className="bg-white rounded-lg shadow-sm border p-4 text-center">
-            <div className="text-2xl font-bold text-purple-600 mb-1">
+          <div className="bg-white border border-gray-200 p-6 text-center">
+            <div className="text-3xl font-light text-charcoal mb-2">
               {therapyStreak}
             </div>
-            <div className="text-sm text-gray-500">Day Streak</div>
+            <div className="text-xs text-gray-500 uppercase tracking-wide font-medium">Streak</div>
           </div>
           
-          <div className="bg-white rounded-lg shadow-sm border p-4 text-center">
-            <div className="text-2xl font-bold text-orange-600 mb-1">
+          <div className="bg-white border border-gray-200 p-6 text-center">
+            <div className="text-3xl font-light text-charcoal mb-2">
               {UserService.formatJoinDate(user).split(' ')[1]}
             </div>
-            <div className="text-sm text-gray-500">Member Since</div>
+            <div className="text-xs text-gray-500 uppercase tracking-wide font-medium">Since</div>
           </div>
         </div>
       )}
 
       {/* Tab Navigation */}
-      <div className="bg-white rounded-lg shadow-sm border">
-        <div className="border-b">
-          <nav className="flex space-x-8 px-6">
+      <div className="bg-white border border-gray-200">
+        <div className="border-b border-gray-100">
+          <nav className="flex space-x-12 px-8">
             {(['overview', 'sessions', 'goals'] as const).map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
-                className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
+                className={`py-4 px-1 border-b-2 font-semibold text-xs uppercase tracking-wide transition-colors duration-200 ${
                   activeTab === tab
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    ? 'border-charcoal text-charcoal'
+                    : 'border-transparent text-gray-500 hover:text-gray-700'
                 }`}
               >
-                {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                {tab}
               </button>
             ))}
           </nav>
         </div>
 
-        <div className="p-6">
+        <div className="p-8">
           {activeTab === 'overview' && userContext && (
             <OverviewTab 
               userContext={userContext} 
@@ -199,21 +199,20 @@ function OverviewTab({ userContext, onStartSession, onSessionSelect }: OverviewT
     <div className="space-y-6">
       {/* Recent Activity */}
       <div>
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Recent Activity</h3>
+        <h3 className="text-sm font-medium text-black mb-4 uppercase tracking-wide">Activity</h3>
         
         {userContext.recentSessions.length === 0 && userContext.activeGoals.length === 0 ? (
-          <div className="text-center py-8 bg-gray-50 rounded-lg">
-            <div className="text-gray-400 mb-2">🌟</div>
-            <p className="text-gray-600 mb-2">Ready to begin your therapy journey?</p>
-            <p className="text-sm text-gray-500 mb-4">
-              Start your first session or set a goal to get started
+          <div className="text-center py-8 border border-gray-200">
+            <p className="text-gray-600 mb-2 text-sm">Ready to begin</p>
+            <p className="text-xs text-gray-500 mb-4">
+              Start your first session or set a goal
             </p>
             {onStartSession && (
               <button
                 onClick={onStartSession}
-                className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+                className="px-3 py-1 bg-black text-white hover:bg-gray-800 transition-colors text-xs"
               >
-                Start First Session
+                Start Session
               </button>
             )}
           </div>
@@ -221,10 +220,10 @@ function OverviewTab({ userContext, onStartSession, onSessionSelect }: OverviewT
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Recent Sessions */}
             <div>
-              <h4 className="font-medium text-gray-900 mb-3">Recent Sessions</h4>
+              <h4 className="text-xs font-medium text-gray-700 mb-3 uppercase tracking-wide">Sessions</h4>
               {userContext.recentSessions.length === 0 ? (
-                <div className="text-center py-4 bg-gray-50 rounded-lg">
-                  <p className="text-sm text-gray-500">No recent sessions</p>
+                <div className="text-center py-4 border border-gray-200">
+                  <p className="text-sm text-gray-500">No sessions</p>
                 </div>
               ) : (
                 <div className="space-y-2">
@@ -232,22 +231,22 @@ function OverviewTab({ userContext, onStartSession, onSessionSelect }: OverviewT
                     <div
                       key={session.id}
                       onClick={() => onSessionSelect?.(session)}
-                      className="p-3 border rounded-lg hover:bg-gray-50 cursor-pointer transition-colors"
+                      className="p-3 border border-gray-200 hover:border-black cursor-pointer transition-colors"
                     >
                       <div className="flex items-center justify-between">
                         <div>
-                          <div className="text-sm font-medium text-gray-900">
+                          <div className="text-sm text-black">
                             {new Date(session.date).toLocaleDateString()}
                           </div>
                           {session.emotion && (
                             <div className="text-xs text-gray-500">
-                              Mood: {session.emotion}
+                              {session.emotion}
                             </div>
                           )}
                         </div>
-                        <div className={`px-2 py-1 text-xs rounded-full ${
-                          session.status === 'completed' ? 'bg-green-100 text-green-700' :
-                          'bg-blue-100 text-blue-700'
+                        <div className={`px-1 py-0 text-xs border ${
+                          session.status === 'completed' ? 'border-gray-300 text-gray-600' :
+                          'border-black text-black'
                         }`}>
                           {session.status}
                         </div>
@@ -260,21 +259,21 @@ function OverviewTab({ userContext, onStartSession, onSessionSelect }: OverviewT
 
             {/* Active Goals */}
             <div>
-              <h4 className="font-medium text-gray-900 mb-3">Active Goals</h4>
+              <h4 className="text-xs font-medium text-gray-700 mb-3 uppercase tracking-wide">Goals</h4>
               {userContext.activeGoals.length === 0 ? (
-                <div className="text-center py-4 bg-gray-50 rounded-lg">
-                  <p className="text-sm text-gray-500">No active goals</p>
+                <div className="text-center py-4 border border-gray-200">
+                  <p className="text-sm text-gray-500">No goals</p>
                 </div>
               ) : (
                 <div className="space-y-2">
                   {userContext.activeGoals.slice(0, 3).map((goal) => (
-                    <div key={goal.id} className="p-3 border rounded-lg">
-                      <div className="text-sm text-gray-900 mb-1 line-clamp-2">
+                    <div key={goal.id} className="p-3 border border-gray-200">
+                      <div className="text-sm text-black mb-1 line-clamp-2">
                         {goal.description}
                       </div>
                       {goal.target_date && (
                         <div className="text-xs text-gray-500">
-                          Target: {new Date(goal.target_date).toLocaleDateString()}
+                          {new Date(goal.target_date).toLocaleDateString()}
                         </div>
                       )}
                     </div>

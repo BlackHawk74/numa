@@ -1,56 +1,171 @@
-// API client for Numa AI Therapist backend
+// Enhanced API client for Numa AI Therapist backend with comprehensive error handling
 
 import { STTResponse, TherapyResponse, Session, Goal, User } from '../types';
+import { ErrorHandler, NetworkMonitor } from './errorHandling';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
 export class ApiClient {
   private static baseUrl = API_BASE_URL;
+  private static requestTimeout = 30000; // 30 seconds
+  private static retryConfig = {
+    maxAttempts: 3,
+    baseDelay: 1000,
+    maxDelay: 10000,
+    backoffFactor: 2,
+  };
 
   /**
-   * Send audio for speech-to-text processing
+   * Enhanced fetch with timeout, retry logic, and error handling
    */
-  static async speechToText(audioBlob: Blob): Promise<STTResponse> {
-    const formData = new FormData();
-    formData.append('audio', audioBlob, 'recording.webm');
-
-    const response = await fetch(`${this.baseUrl}/api/stt`, {
-      method: 'POST',
-      body: formData,
-    });
-
-    if (!response.ok) {
-      throw new Error(`STT API error: ${response.statusText}`);
+  private static async enhancedFetch(
+    url: string,
+    options: RequestInit = {},
+    retryable: boolean = true
+  ): Promise<Response> {
+    // Check network connectivity first
+    if (!NetworkMonitor.getStatus()) {
+      throw new Error('No internet connection available');
     }
 
-    return response.json();
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), this.requestTimeout);
+
+    const fetchOptions: RequestInit = {
+      ...options,
+      signal: controller.signal,
+    };
+
+    const operation = async (): Promise<Response> => {
+      try {
+        const response = await fetch(url, fetchOptions);
+        clearTimeout(timeoutId);
+        
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
+        return response;
+      } catch (error) {
+        clearTimeout(timeoutId);
+        
+        if (error instanceof Error && error.name === 'AbortError') {
+          throw new Error('Request timeout - please try again');
+        }
+        
+        throw error;
+      }
+    };
+
+    if (retryable) {
+      return ErrorHandler.withRetry(
+        operation,
+        this.retryConfig,
+        (attempt, error) => {
+          console.warn(`API request attempt ${attempt} failed:`, error.message);
+        }
+      );
+    } else {
+      return operation();
+    }
   }
 
   /**
-   * Send message to therapy AI
+   * Send audio for speech-to-text processing with enhanced error handling
+   */
+  static async speechToText(audioBlob: Blob): Promise<STTResponse> {
+    try {
+      // Validate audio blob
+      if (!audioBlob || audioBlob.size === 0) {
+        throw new Error('Audio recording is empty');
+      }
+
+      if (audioBlob.size < 1000) {
+        throw new Error('Audio recording is too short');
+      }
+
+      if (audioBlob.size > 10 * 1024 * 1024) { // 10MB limit
+        throw new Error('Audio file is too large');
+      }
+
+      const formData = new FormData();
+      formData.append('audio', audioBlob, 'recording.webm');
+
+      const response = await this.enhancedFetch(`${this.baseUrl}/api/stt`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      const result = await response.json();
+      
+      // Validate response
+      if (!result.transcription) {
+        throw new Error('No transcription received from speech-to-text service');
+      }
+
+      return result;
+    } catch (error) {
+      const errorInfo = ErrorHandler.parseError(error, {
+        operation: 'speechToText',
+        audioBlobSize: audioBlob?.size,
+      });
+      ErrorHandler.logError(errorInfo);
+      throw error;
+    }
+  }
+
+  /**
+   * Send message to therapy AI with enhanced error handling
    */
   static async sendTherapyMessage(
     userId: string,
     message: string,
     sessionId?: string
   ): Promise<TherapyResponse> {
-    const response = await fetch(`${this.baseUrl}/api/therapy`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
+    try {
+      // Validate inputs
+      if (!userId || userId.trim().length === 0) {
+        throw new Error('User ID is required');
+      }
+
+      if (!message || message.trim().length === 0) {
+        throw new Error('Message cannot be empty');
+      }
+
+      if (message.length > 1000) {
+        throw new Error('Message is too long (max 1000 characters)');
+      }
+
+      const response = await this.enhancedFetch(`${this.baseUrl}/api/therapy`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId: userId.trim(),
+          message: message.trim(),
+          sessionId,
+        }),
+      });
+
+      const result = await response.json();
+      
+      // Validate response
+      if (!result.response) {
+        throw new Error('No response received from therapy AI');
+      }
+
+      return result;
+    } catch (error) {
+      const errorInfo = ErrorHandler.parseError(error, {
+        operation: 'sendTherapyMessage',
         userId,
-        message,
+        messageLength: message?.length,
         sessionId,
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error(`Therapy API error: ${response.statusText}`);
+      });
+      ErrorHandler.logError(errorInfo);
+      throw error;
     }
-
-    return response.json();
   }
 
   /**

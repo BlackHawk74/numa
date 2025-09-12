@@ -61,10 +61,10 @@ Numa is a voice-only CBT-based AI therapist web application designed to provide 
 #### Acceptance Criteria
 
 1. WHEN the application loads THEN the interface SHALL display a centered microphone button as the primary interaction element
-2. WHEN audio is being processed THEN the system SHALL show a waveform animation to indicate listening state
-3. WHEN conversations occur THEN the system SHALL display subtitles for both user and Numa's speech
-4. WHEN designing the interface THEN the system SHALL use a calming color palette of light blue, white, and soft gray
-5. WHEN the user interacts with the app THEN the interface SHALL remain minimal and distraction-free
+2. WHEN audio is being processed THEN the system SHALL show a minimalist waveform animation to indicate listening state
+3. WHEN conversations occur THEN the system SHALL display subtitles for both user and Numa's speech with clean typography
+4. WHEN designing the interface THEN the system SHALL use a strict monochrome color palette of charcoal (#353839), white, and grayscale variations
+5. WHEN the user interacts with the app THEN the interface SHALL remain minimal, modern, and distraction-free with generous white space
 
 ### Requirement 6
 

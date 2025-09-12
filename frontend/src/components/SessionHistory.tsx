@@ -65,12 +65,12 @@ export function SessionHistory({ userId, onSessionSelect, className = '' }: Sess
 
   if (loading && sessions.length === 0) {
     return (
-      <div className={`bg-white rounded-lg shadow-sm border p-6 ${className}`}>
+      <div className={`bg-white border border-gray-200 p-6 ${className}`}>
         <div className="animate-pulse">
-          <div className="h-6 bg-gray-200 rounded w-1/3 mb-4"></div>
+          <div className="h-4 bg-gray-200 w-1/3 mb-4"></div>
           <div className="space-y-3">
             {[1, 2, 3].map(i => (
-              <div key={i} className="h-16 bg-gray-100 rounded"></div>
+              <div key={i} className="h-12 bg-gray-100"></div>
             ))}
           </div>
         </div>
@@ -80,15 +80,14 @@ export function SessionHistory({ userId, onSessionSelect, className = '' }: Sess
 
   if (error) {
     return (
-      <div className={`bg-white rounded-lg shadow-sm border p-6 ${className}`}>
+      <div className={`bg-white border border-gray-200 p-6 ${className}`}>
         <div className="text-center">
-          <div className="text-red-500 mb-2">⚠️</div>
-          <p className="text-gray-600 mb-4">{error}</p>
+          <p className="text-gray-600 mb-4 text-sm">{error}</p>
           <button
             onClick={() => loadSessions(true)}
-            className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+            className="px-3 py-1 bg-black text-white hover:bg-gray-800 transition-colors text-sm"
           >
-            Try Again
+            Retry
           </button>
         </div>
       </div>
@@ -96,84 +95,83 @@ export function SessionHistory({ userId, onSessionSelect, className = '' }: Sess
   }
 
   return (
-    <div className={`bg-white rounded-lg shadow-sm border ${className}`}>
-      <div className="p-6 border-b">
-        <h3 className="text-lg font-semibold text-gray-900 mb-2">Session History</h3>
+    <div className={`bg-white border border-gray-200 ${className}`}>
+      <div className="p-4 border-b border-gray-200">
+        <h3 className="text-sm font-medium text-black mb-3 uppercase tracking-wide">Sessions</h3>
         
         {statistics && (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">
             <div className="text-center">
-              <div className="text-2xl font-bold text-blue-600">{statistics.totalSessions}</div>
-              <div className="text-gray-500">Total Sessions</div>
+              <div className="text-lg font-light text-black">{statistics.totalSessions}</div>
+              <div className="text-gray-500 uppercase tracking-wide">Total</div>
             </div>
             <div className="text-center">
-              <div className="text-2xl font-bold text-green-600">{statistics.completedSessions}</div>
-              <div className="text-gray-500">Completed</div>
+              <div className="text-lg font-light text-black">{statistics.completedSessions}</div>
+              <div className="text-gray-500 uppercase tracking-wide">Complete</div>
             </div>
             <div className="text-center">
-              <div className="text-2xl font-bold text-purple-600">
-                {statistics.averageDuration ? `${Math.round(statistics.averageDuration)}m` : 'N/A'}
+              <div className="text-lg font-light text-black">
+                {statistics.averageDuration ? `${Math.round(statistics.averageDuration)}m` : '—'}
               </div>
-              <div className="text-gray-500">Avg Duration</div>
+              <div className="text-gray-500 uppercase tracking-wide">Avg Time</div>
             </div>
             <div className="text-center">
-              <div className="text-2xl font-bold text-orange-600">
-                {statistics.mostCommonEmotion || 'N/A'}
+              <div className="text-lg font-light text-black">
+                {statistics.mostCommonEmotion || '—'}
               </div>
-              <div className="text-gray-500">Common Mood</div>
+              <div className="text-gray-500 uppercase tracking-wide">Mood</div>
             </div>
           </div>
         )}
       </div>
 
-      <div className="p-6">
+      <div className="p-4">
         {sessions.length === 0 ? (
           <div className="text-center py-8">
-            <div className="text-gray-400 mb-2">📝</div>
-            <p className="text-gray-500">No sessions yet</p>
-            <p className="text-sm text-gray-400 mt-1">Start your first therapy session to see it here</p>
+            <p className="text-gray-500 text-sm">No sessions</p>
+            <p className="text-xs text-gray-400 mt-1">Start your first session</p>
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-2">
             {sessions.map((session) => (
               <div
                 key={session.id}
                 onClick={() => handleSessionClick(session)}
-                className={`p-4 border rounded-lg transition-colors cursor-pointer hover:bg-gray-50 ${
-                  session.status === 'completed' ? 'border-green-200 bg-green-50' : 
-                  session.status === 'active' ? 'border-blue-200 bg-blue-50' : 
-                  'border-gray-200'
+                className={`p-3 border border-gray-200 transition-colors cursor-pointer hover:border-black ${
+                  session.status === 'completed' ? 'bg-gray-50' : 
+                  session.status === 'active' ? 'bg-white' : 
+                  'bg-white'
                 }`}
               >
                 <div className="flex items-center justify-between">
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="text-sm font-medium text-gray-900">
+                      <span className="text-sm text-black">
                         {SessionService.formatSessionDate(session.date)}
                       </span>
-                      <span className={`px-2 py-1 text-xs rounded-full ${
-                        session.status === 'completed' ? 'bg-green-100 text-green-700' :
-                        session.status === 'active' ? 'bg-blue-100 text-blue-700' :
-                        'bg-gray-100 text-gray-700'
+                      <span className={`px-1 py-0 text-xs border ${
+                        session.status === 'completed' ? 'border-gray-300 text-gray-600' :
+                        session.status === 'active' ? 'border-black text-black' :
+                        'border-gray-300 text-gray-600'
                       }`}>
                         {session.status}
                       </span>
                       {session.emotion && (
-                        <span className={`text-xs ${SessionService.getEmotionColor(session.emotion)}`}>
+                        <span className="text-xs text-gray-500">
                           {session.emotion}
                         </span>
                       )}
                     </div>
                     
                     {session.summary && (
-                      <p className="text-sm text-gray-600 line-clamp-2 mb-1">
+                      <p className="text-xs text-gray-600 line-clamp-2 mb-1">
                         {session.summary}
                       </p>
                     )}
                     
-                    <div className="flex items-center gap-4 text-xs text-gray-500">
+                    <div className="flex items-center gap-3 text-xs text-gray-400">
                       {session.duration_minutes && (
-                        <span>Duration: {SessionService.formatDuration(session.duration_minutes)}</span>
+                        <span>{SessionService.formatDuration(session.duration_minutes)}</span>
                       )}
                       <span>
                         {new Date(session.date).toLocaleTimeString([], { 
@@ -184,7 +182,7 @@ export function SessionHistory({ userId, onSessionSelect, className = '' }: Sess
                     </div>
                   </div>
                   
-                  <div className="text-gray-400">
+                  <div className="text-gray-300 text-xs">
                     →
                   </div>
                 </div>
@@ -195,9 +193,9 @@ export function SessionHistory({ userId, onSessionSelect, className = '' }: Sess
               <button
                 onClick={loadMore}
                 disabled={loading}
-                className="w-full py-3 text-sm text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors disabled:opacity-50"
+                className="w-full py-2 text-xs text-gray-600 hover:text-black border border-gray-200 hover:border-black transition-colors disabled:opacity-50 uppercase tracking-wide"
               >
-                {loading ? 'Loading...' : 'Load More Sessions'}
+                {loading ? 'Loading...' : 'More'}
               </button>
             )}
           </div>

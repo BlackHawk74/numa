@@ -2,6 +2,46 @@ import { Request, Response, NextFunction } from 'express';
 import { DatabaseError } from '../database/connection';
 
 /**
+ * Enhanced error logging for monitoring
+ */
+const logErrorForMonitoring = (error: Error, req: Request) => {
+  const errorData = {
+    message: error.message,
+    stack: error.stack,
+    name: error.name,
+    url: req.url,
+    method: req.method,
+    headers: req.headers,
+    body: req.body,
+    query: req.query,
+    params: req.params,
+    userAgent: req.get('User-Agent'),
+    ip: req.ip,
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV,
+  };
+
+  // Console logging for development
+  if (process.env.NODE_ENV === 'development') {
+    console.error('Error Details:', errorData);
+  } else {
+    // In production, log essential info only
+    console.error('Production Error:', {
+      message: error.message,
+      url: req.url,
+      method: req.method,
+      timestamp: errorData.timestamp,
+    });
+  }
+
+  // TODO: Send to monitoring service in production
+  // Example: Sentry, LogRocket, DataDog, etc.
+  // if (process.env.NODE_ENV === 'production') {
+  //   sendToMonitoringService(errorData);
+  // }
+};
+
+/**
  * Global error handling middleware
  */
 export const errorHandler = (
@@ -10,14 +50,8 @@ export const errorHandler = (
   res: Response,
   next: NextFunction
 ) => {
-  console.error('Error occurred:', {
-    message: error.message,
-    stack: error.stack,
-    url: req.url,
-    method: req.method,
-    body: req.body,
-    timestamp: new Date().toISOString()
-  });
+  // Log error for monitoring
+  logErrorForMonitoring(error, req);
 
   // Handle specific error types
   if (error instanceof DatabaseError) {
@@ -72,18 +106,33 @@ export const errorHandler = (
   if (error.message.includes('HuggingFace') || error.message.includes('API')) {
     return res.status(503).json({
       error: 'External service error',
-      message: 'AI service is temporarily unavailable',
+      message: 'AI service is temporarily unavailable. Please try again in a moment.',
       type: 'external_service',
+      retryable: true,
+      retryAfter: 30, // seconds
       details: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 
   // Handle network/timeout errors
-  if (error.message.includes('timeout') || error.message.includes('ECONNREFUSED')) {
+  if (error.message.includes('timeout') || error.message.includes('ECONNREFUSED') || error.message.includes('ETIMEDOUT')) {
     return res.status(503).json({
       error: 'Service unavailable',
-      message: 'External service is temporarily unavailable',
-      type: 'network'
+      message: 'Service is temporarily unavailable due to network issues.',
+      type: 'network',
+      retryable: true,
+      retryAfter: 10, // seconds
+    });
+  }
+
+  // Handle rate limiting errors
+  if (error.message.includes('rate limit') || error.message.includes('429')) {
+    return res.status(429).json({
+      error: 'Rate limit exceeded',
+      message: 'Too many requests. Please wait before trying again.',
+      type: 'rate_limit',
+      retryable: true,
+      retryAfter: 60, // seconds
     });
   }
 
@@ -91,10 +140,12 @@ export const errorHandler = (
   res.status(500).json({
     error: 'Internal server error',
     message: process.env.NODE_ENV === 'production' 
-      ? 'An unexpected error occurred' 
+      ? 'An unexpected error occurred. Please try again.' 
       : error.message,
     type: 'internal',
-    timestamp: new Date().toISOString()
+    retryable: true,
+    timestamp: new Date().toISOString(),
+    requestId: req.headers['x-request-id'] || 'unknown'
   });
 };
 
@@ -105,9 +156,11 @@ export const notFoundHandler = (req: Request, res: Response) => {
   res.status(404).json({
     error: 'Not found',
     message: `Route ${req.method} ${req.path} not found`,
+    type: 'not_found',
     availableEndpoints: [
       'GET /health',
       'GET /health/database',
+      'GET /health/connectivity',
       'POST /api/stt',
       'GET /api/stt/info',
       'POST /api/therapy',
