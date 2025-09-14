@@ -1,5 +1,6 @@
 import { Session, User, Goal } from '../types';
 import { apiClient } from '../utils/apiClient';
+import { supabase } from '../lib/supabase';
 
 export interface SessionWithContext {
   session: Session;
@@ -34,12 +35,20 @@ export class SessionService {
   /**
    * Initialize a new session with user context
    */
-  static async initializeSession(userId: string): Promise<SessionWithContext> {
+  static async initializeSession(): Promise<SessionWithContext> {
     try {
-      console.log('Initializing session for user:', userId);
+      console.log('Initializing session for authenticated user');
 
-      const response = await apiClient.post(`${this.BASE_URL}/initialize`, {
-        userId
+      // Get auth token
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error('User not authenticated');
+      }
+
+      const response = await apiClient.post(`${this.BASE_URL}/initialize`, {}, {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`
+        }
       });
 
       if (!response.data.session) {
@@ -61,18 +70,26 @@ export class SessionService {
   }
 
   /**
-   * Get sessions for a user
+   * Get sessions for authenticated user
    */
   static async getUserSessions(
-    userId: string, 
     limit: number = 10, 
     offset: number = 0
   ): Promise<SessionListResponse> {
     try {
-      console.log('Fetching sessions for user:', userId);
+      console.log('Fetching sessions for authenticated user');
 
-      const response = await apiClient.get(`${this.BASE_URL}/${userId}`, {
-        params: { limit, offset }
+      // Get auth token
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error('User not authenticated');
+      }
+
+      const response = await apiClient.get(this.BASE_URL, {
+        params: { limit, offset },
+        headers: {
+          Authorization: `Bearer ${session.access_token}`
+        }
       });
 
       return response.data;
@@ -87,13 +104,23 @@ export class SessionService {
   }
 
   /**
-   * Get a specific session by ID
+   * Get a specific session by ID (must belong to authenticated user)
    */
   static async getSession(sessionId: string): Promise<Session> {
     try {
       console.log('Fetching session:', sessionId);
 
-      const response = await apiClient.get(`${this.BASE_URL}/session/${sessionId}`);
+      // Get auth token
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error('User not authenticated');
+      }
+
+      const response = await apiClient.get(`${this.BASE_URL}/session/${sessionId}`, {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`
+        }
+      });
 
       if (!response.data.session) {
         throw new Error('No session data received from server');
@@ -126,7 +153,17 @@ export class SessionService {
     try {
       console.log('Updating session:', sessionId, updates);
 
-      const response = await apiClient.put(`${this.BASE_URL}/${sessionId}`, updates);
+      // Get auth token
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error('User not authenticated');
+      }
+
+      const response = await apiClient.put(`${this.BASE_URL}/${sessionId}`, updates, {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`
+        }
+      });
 
       if (!response.data.session) {
         throw new Error('No session data received from server');
@@ -155,10 +192,20 @@ export class SessionService {
     try {
       console.log('Completing session:', sessionId);
 
+      // Get auth token
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error('User not authenticated');
+      }
+
       const response = await apiClient.post(`${this.BASE_URL}/${sessionId}/complete`, {
         summary,
         emotion,
         durationMinutes
+      }, {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`
+        }
       });
 
       if (!response.data.session) {
@@ -183,7 +230,17 @@ export class SessionService {
     try {
       console.log('Deleting session:', sessionId);
 
-      await apiClient.delete(`${this.BASE_URL}/${sessionId}`);
+      // Get auth token
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error('User not authenticated');
+      }
+
+      await apiClient.delete(`${this.BASE_URL}/${sessionId}`, {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`
+        }
+      });
     } catch (error) {
       console.error('Error deleting session:', error);
       throw new Error(

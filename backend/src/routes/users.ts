@@ -1,21 +1,23 @@
 import { Router, Request, Response } from 'express';
 import { UserRepository } from '../database/repositories/UserRepository';
+import { authenticateUser, ensureUserExists } from '../middleware/auth';
 
 const router = Router();
 
 /**
  * POST /api/users
- * Create a new user
+ * Create a new user (authenticated)
  */
-router.post('/', async (req: Request, res: Response) => {
+router.post('/', authenticateUser, async (req: Request, res: Response) => {
   try {
     const { name, preferences } = req.body;
 
-    console.log('Creating new user:', { name, preferences });
+    console.log('Creating new user:', { userId: req.userId, name, preferences });
 
-    // Create user
+    // Create user with authenticated user ID
     const user = await UserRepository.create({
-      name: name || 'Anonymous User',
+      id: req.userId!, // Use authenticated user ID
+      name: name || req.user?.user_metadata?.name || 'Anonymous User',
       preferences: preferences || {}
     });
 
@@ -35,32 +37,14 @@ router.post('/', async (req: Request, res: Response) => {
 });
 
 /**
- * GET /api/users/:userId
- * Get a specific user by ID
+ * GET /api/users/me
+ * Get current authenticated user
  */
-router.get('/:userId', async (req: Request, res: Response) => {
+router.get('/me', authenticateUser, ensureUserExists, async (req: Request, res: Response) => {
   try {
-    const { userId } = req.params;
+    console.log(`Fetching user: ${req.userId}`);
 
-    if (!userId) {
-      return res.status(400).json({
-        error: 'Missing user ID',
-        message: 'User ID is required'
-      });
-    }
-
-    // Validate UUID format
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-    if (!uuidRegex.test(userId)) {
-      return res.status(400).json({
-        error: 'Invalid user ID format',
-        message: 'userId must be a valid UUID'
-      });
-    }
-
-    console.log(`Fetching user: ${userId}`);
-
-    const user = await UserRepository.findById(userId);
+    const user = await UserRepository.findById(req.userId!);
     
     if (!user) {
       return res.status(404).json({
@@ -82,32 +66,14 @@ router.get('/:userId', async (req: Request, res: Response) => {
 });
 
 /**
- * GET /api/users/:userId/context
- * Get user with their context (recent sessions and active goals)
+ * GET /api/users/me/context
+ * Get current user with their context (recent sessions and active goals)
  */
-router.get('/:userId/context', async (req: Request, res: Response) => {
+router.get('/me/context', authenticateUser, ensureUserExists, async (req: Request, res: Response) => {
   try {
-    const { userId } = req.params;
+    console.log(`Fetching user context: ${req.userId}`);
 
-    if (!userId) {
-      return res.status(400).json({
-        error: 'Missing user ID',
-        message: 'User ID is required'
-      });
-    }
-
-    // Validate UUID format
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-    if (!uuidRegex.test(userId)) {
-      return res.status(400).json({
-        error: 'Invalid user ID format',
-        message: 'userId must be a valid UUID'
-      });
-    }
-
-    console.log(`Fetching user context: ${userId}`);
-
-    const userContext = await UserRepository.getUserWithContext(userId);
+    const userContext = await UserRepository.getUserWithContext(req.userId!);
 
     res.json({
       user: userContext.user,
@@ -131,31 +97,14 @@ router.get('/:userId/context', async (req: Request, res: Response) => {
 });
 
 /**
- * PUT /api/users/:userId
- * Update a user
+ * PUT /api/users/me
+ * Update current authenticated user
  */
-router.put('/:userId', async (req: Request, res: Response) => {
+router.put('/me', authenticateUser, ensureUserExists, async (req: Request, res: Response) => {
   try {
-    const { userId } = req.params;
     const { name, preferences } = req.body;
 
-    if (!userId) {
-      return res.status(400).json({
-        error: 'Missing user ID',
-        message: 'User ID is required'
-      });
-    }
-
-    console.log(`Updating user: ${userId}`);
-
-    // Check if user exists
-    const existingUser = await UserRepository.findById(userId);
-    if (!existingUser) {
-      return res.status(404).json({
-        error: 'User not found',
-        message: 'The specified user does not exist'
-      });
-    }
+    console.log(`Updating user: ${req.userId}`);
 
     // Prepare update data
     const updateData: any = {};
@@ -163,7 +112,7 @@ router.put('/:userId', async (req: Request, res: Response) => {
     if (preferences !== undefined) updateData.preferences = preferences;
 
     // Update user
-    const updatedUser = await UserRepository.update(userId, updateData);
+    const updatedUser = await UserRepository.update(req.userId!, updateData);
 
     res.json({
       user: updatedUser,

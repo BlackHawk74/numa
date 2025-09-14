@@ -1,4 +1,4 @@
-import { HfInference } from '@huggingface/inference';
+import { InferenceClient } from '@huggingface/inference';
 import { huggingFaceClient } from './HuggingFaceClient';
 
 export interface TTSResult {
@@ -19,7 +19,7 @@ export interface TTSOptions {
  * Note: This is used as fallback when browser Web Speech API is unavailable
  */
 export class TextToSpeechService {
-  private client: HfInference;
+  private client: InferenceClient;
   private readonly MODEL_NAME = 'hexgrad/Kokoro-82M';
   private readonly DEFAULT_MAX_RETRIES = 3;
   private readonly DEFAULT_RETRY_DELAY = 1000;
@@ -58,9 +58,10 @@ export class TextToSpeechService {
         // Clean and prepare text for TTS
         const cleanText = this.prepareTextForTTS(text);
 
-        const result = await this.client.textToSpeech({
+        const result = await (this.client as any).textToSpeech({
           model: this.MODEL_NAME,
-          inputs: cleanText
+          inputs: cleanText,
+          provider: 'hf-inference'
         });
 
         if (result) {

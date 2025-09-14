@@ -3,6 +3,7 @@ import { User, Session, Goal } from '../types';
 import { UserService, UserContextResponse } from '../services/UserService';
 import { SessionService, SessionWithContext } from '../services/SessionService';
 import { useAppContext } from '../context/AppContext';
+import { useAuth } from '../context/AuthContext';
 
 export interface UseUserSessionReturn {
   // User state
@@ -33,6 +34,7 @@ export interface UseUserSessionReturn {
  */
 export function useUserSession(): UseUserSessionReturn {
   const { state, dispatch } = useAppContext();
+  const { user: authUser, loading: authLoading } = useAuth();
   
   const [user, setUser] = useState<User | null>(null);
   const [isNewUser, setIsNewUser] = useState(false);
@@ -42,18 +44,24 @@ export function useUserSession(): UseUserSessionReturn {
   const [initializing, setInitializing] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Initialize user on mount
+  // Initialize user when auth user is available
   useEffect(() => {
-    const initializeFromStorage = async () => {
+    let isCancelled = false;
+    
+    const initializeFromAuth = async () => {
+      if (authLoading) return; // Wait for auth to load
+      if (isCancelled) return; // Prevent race conditions
+      
       try {
         setInitializing(true);
         setError(null);
 
-        const existingUserId = UserService.getCurrentUserId();
-        if (existingUserId) {
-          // Try to load existing user
+        if (authUser) {
+          // Try to load existing user from our database
           try {
-            const context = await UserService.getUserContext(existingUserId);
+            const context = await UserService.getUserContext();
+            if (isCancelled) return;
+            
             setUser(context.user);
             setUserContext(context);
             setIsNewUser(false);
@@ -61,20 +69,59 @@ export function useUserSession(): UseUserSessionReturn {
             // Update app context
             dispatch({ type: 'SET_USER', payload: context.user });
           } catch (err) {
-            console.warn('Failed to load existing user, will need to re-initialize:', err);
-            UserService.clearCurrentUser();
+            if (isCancelled) return;
+            
+            console.warn('User not found in database, creating new record:', err);
+            // User is authenticated but not in our database yet
+            // Auto-initialize the user
+            try {
+              console.log('Auto-initializing user...');
+              const result = await UserService.initializeUser();
+              if (isCancelled) return;
+              
+              console.log('User initialized successfully:', result);
+              
+              setUser(result.user);
+              setIsNewUser(result.isNewUser);
+              
+              if (result.context) {
+                setUserContext(result.context);
+              }
+
+              // Update app context
+              dispatch({ type: 'SET_USER', payload: result.user });
+              console.log('User state updated in app context');
+            } catch (initError) {
+              if (isCancelled) return;
+              console.error('Failed to initialize user:', initError);
+              setError(initError instanceof Error ? initError.message : 'Failed to initialize user');
+            }
           }
+        } else {
+          // No authenticated user
+          if (isCancelled) return;
+          setUser(null);
+          setUserContext(null);
+          setIsNewUser(false);
+          dispatch({ type: 'SET_USER', payload: undefined });
         }
       } catch (err) {
+        if (isCancelled) return;
         console.error('Error during initialization:', err);
         setError(err instanceof Error ? err.message : 'Failed to initialize user session');
       } finally {
-        setInitializing(false);
+        if (!isCancelled) {
+          setInitializing(false);
+        }
       }
     };
 
-    initializeFromStorage();
-  }, [dispatch]);
+    initializeFromAuth();
+    
+    return () => {
+      isCancelled = true;
+    };
+  }, [authUser, authLoading, dispatch]);
 
   // Sync current session with app context
   useEffect(() => {
@@ -83,12 +130,16 @@ export function useUserSession(): UseUserSessionReturn {
     }
   }, [currentSession, dispatch]);
 
-  const initializeUser = useCallback(async (name?: string) => {
+  const initializeUser = useCallback(async () => {
+    if (!authUser) {
+      throw new Error('User must be authenticated first');
+    }
+
     try {
       setLoading(true);
       setError(null);
 
-      const result = await UserService.initializeUser(name);
+      const result = await UserService.initializeUser();
       
       setUser(result.user);
       setIsNewUser(result.isNewUser);
@@ -112,18 +163,23 @@ export function useUserSession(): UseUserSessionReturn {
     } finally {
       setLoading(false);
     }
-  }, [dispatch]);
+  }, [authUser, dispatch]);
 
   const startNewSession = useCallback(async (): Promise<Session> => {
     if (!user) {
       throw new Error('No user available to start session');
     }
 
+    // Prevent duplicate session creation
+    if (loading) {
+      throw new Error('Session creation already in progress');
+    }
+
     try {
       setLoading(true);
       setError(null);
 
-      const sessionWithContext = await SessionService.initializeSession(user.id);
+      const sessionWithContext = await SessionService.initializeSession();
       
       setCurrentSession(sessionWithContext.session);
       
@@ -147,16 +203,16 @@ export function useUserSession(): UseUserSessionReturn {
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [user, loading]);
 
   const loadUserContext = useCallback(async () => {
-    if (!user) return;
+    if (!authUser) return;
 
     try {
       setLoading(true);
       setError(null);
 
-      const context = await UserService.getUserContext(user.id);
+      const context = await UserService.getUserContext();
       setUserContext(context);
 
     } catch (err) {
@@ -165,18 +221,18 @@ export function useUserSession(): UseUserSessionReturn {
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [authUser]);
 
   const updateUser = useCallback(async (updates: { name?: string; preferences?: Record<string, any> }) => {
-    if (!user) {
-      throw new Error('No user available to update');
+    if (!authUser) {
+      throw new Error('User must be authenticated');
     }
 
     try {
       setLoading(true);
       setError(null);
 
-      const updatedUser = await UserService.updateUser(user.id, updates);
+      const updatedUser = await UserService.updateUser(updates);
       
       setUser(updatedUser);
       
@@ -193,10 +249,9 @@ export function useUserSession(): UseUserSessionReturn {
     } finally {
       setLoading(false);
     }
-  }, [user, dispatch, loadUserContext]);
+  }, [authUser, dispatch, loadUserContext]);
 
   const clearUser = useCallback(() => {
-    UserService.clearCurrentUser();
     setUser(null);
     setIsNewUser(false);
     setUserContext(null);

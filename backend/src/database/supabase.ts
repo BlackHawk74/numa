@@ -22,6 +22,7 @@ export interface Session {
   emotion?: string;
   duration_minutes?: number;
   status?: 'active' | 'completed' | 'cancelled';
+  conversation_count?: number;
   created_at: string;
   updated_at: string;
 }
@@ -34,6 +35,20 @@ export interface Goal {
   status?: 'active' | 'completed' | 'cancelled';
   target_date?: string;
   progress_notes?: string[];
+  updated_at: string;
+}
+
+export interface Message {
+  id: string;
+  session_id: string;
+  user_id: string;
+  speaker: 'user' | 'numa' | 'system';
+  content: string;
+  emotion?: string;
+  emotion_confidence?: number;
+  timestamp: string;
+  metadata?: Record<string, any>;
+  created_at: string;
   updated_at: string;
 }
 
@@ -69,6 +84,15 @@ export interface Database {
         };
         Update: Partial<Omit<Goal, 'id' | 'created_at' | 'updated_at'>>;
       };
+      messages: {
+        Row: Message;
+        Insert: Omit<Message, 'id' | 'created_at' | 'updated_at'> & {
+          id?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Omit<Message, 'id' | 'created_at' | 'updated_at'>>;
+      };
     };
   };
 }
@@ -85,10 +109,17 @@ if (!supabaseAnonKey) {
   throw new Error('Missing SUPABASE_ANON_KEY environment variable');
 }
 
-// Create and export Supabase client
+// Create and export Supabase client for server operations
+// Use service role key for server-side operations that bypass RLS
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+if (!supabaseServiceKey) {
+  console.warn('SUPABASE_SERVICE_ROLE_KEY not found, using anon key (RLS will be enforced)');
+}
+
 export const supabase: SupabaseClient<Database> = createClient<Database>(
   supabaseUrl,
-  supabaseAnonKey,
+  supabaseServiceKey || supabaseAnonKey,
   {
     auth: {
       autoRefreshToken: true,
@@ -99,6 +130,25 @@ export const supabase: SupabaseClient<Database> = createClient<Database>(
     },
   }
 );
+
+// Create client for user-authenticated operations (respects RLS)
+export const createUserSupabaseClient = (accessToken: string): SupabaseClient<Database> => {
+  return createClient<Database>(
+    supabaseUrl,
+    supabaseAnonKey,
+    {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+      global: {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      },
+    }
+  );
+};
 
 // Export client for testing and direct access
 export default supabase;

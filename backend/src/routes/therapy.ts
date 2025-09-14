@@ -5,6 +5,7 @@ import { sessionSummaryService } from '../services/SessionSummaryService';
 import { UserRepository } from '../database/repositories/UserRepository';
 import { SessionRepository } from '../database/repositories/SessionRepository';
 import { GoalRepository } from '../database/repositories/GoalRepository';
+import { MessageRepository } from '../database/repositories/MessageRepository';
 
 const router = Router();
 
@@ -55,25 +56,41 @@ router.post('/', async (req: Request, res: Response) => {
     // Perform sentiment analysis on user message
     const sentimentResult = await sentimentAnalysisService.analyzeSentiment(message);
     
+    // Get conversation history from messages table
+    let conversationHistory: string[] = [];
+    if (sessionId) {
+      const recentMessages = await MessageRepository.getConversationHistory(userId, sessionId, 10);
+      conversationHistory = recentMessages.map(msg => `${msg.speaker}: ${msg.content}`);
+    } else {
+      // Get recent messages from user's last sessions
+      const recentMessages = await MessageRepository.getConversationHistory(userId, undefined, 6);
+      conversationHistory = recentMessages.map(msg => `${msg.speaker}: ${msg.content}`);
+    }
+    
     // Prepare conversation context
     const conversationContext = {
       userId,
       userName: userName || userContext.user.name || 'User',
-      sessionHistory: userContext.recentSessions.map(session => session.summary).filter(Boolean),
+      sessionHistory: conversationHistory,
       activeGoals: userContext.activeGoals.map(goal => goal.description),
       detectedEmotion: sentimentResult.emotion
     };
 
     // Handle session management first
     let currentSession;
+    let conversationLength = 0;
+    
     if (sessionId) {
       // Get existing session
       currentSession = await SessionRepository.findById(sessionId);
+      if (currentSession) {
+        // Get conversation length from messages count
+        const sessionMessages = await MessageRepository.findBySessionId(sessionId);
+        conversationLength = Math.floor(sessionMessages.length / 2); // Divide by 2 for user/AI pairs
+      }
     }
 
     // Check if session should be concluded (only for existing sessions with substantial content)
-    const conversationLength = currentSession?.transcript ? 
-      (currentSession.transcript.split('\n').filter(line => line.trim().length > 0).length / 2) : 0;
     const shouldConclude = currentSession && conversationLength > 2 ? 
       conversationService.shouldConcludeSession(
         conversationLength,
@@ -102,18 +119,47 @@ router.post('/', async (req: Request, res: Response) => {
 
     // Update or create session with conversation
     if (sessionId && currentSession) {
-      // Update existing session
-      const existingTranscript = currentSession.transcript || '';
-      const newTranscript = `${existingTranscript}\nUser: ${message}\nNuma: ${conversationResult.response}`;
-      await SessionRepository.addTranscript(sessionId, newTranscript);
+      // Store individual messages in the messages table
+      await MessageRepository.createConversationPair(
+        sessionId,
+        userId,
+        message,
+        conversationResult.response,
+        sentimentResult.emotion,
+        sentimentResult.confidence,
+        {
+          shouldConclude,
+          conversationLength: conversationLength + 1
+        }
+      );
+      
+      // Update session emotion if needed
+      if (sentimentResult.emotion && sentimentResult.emotion !== currentSession.emotion) {
+        await SessionRepository.update(sessionId, {
+          emotion: sentimentResult.emotion
+        });
+      }
     } else {
       // Create new session
       currentSession = await SessionRepository.create({
         user_id: userId,
-        transcript: `User: ${message}\nNuma: ${conversationResult.response}`,
         emotion: sentimentResult.emotion,
         status: 'active'
       });
+      
+      // Store the first conversation pair
+      await MessageRepository.createConversationPair(
+        currentSession.id,
+        userId,
+        message,
+        conversationResult.response,
+        sentimentResult.emotion,
+        sentimentResult.confidence,
+        {
+          shouldConclude,
+          conversationLength: 1
+        }
+      );
     }
 
     // Create goal if suggested

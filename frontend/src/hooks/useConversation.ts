@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { ApiClient } from '../utils/apiClient';
 import { Message, TherapyResponse } from '../types';
@@ -7,6 +7,10 @@ import { ttsService } from '../services/TTSService';
 export function useConversation() {
   const { state, dispatch } = useAppContext();
   const { conversationState, user, currentSession } = state;
+  
+  // Simple rate limiting state
+  const [lastRequestTime, setLastRequestTime] = useState(0);
+  const [requestCount, setRequestCount] = useState(0);
 
   // Send a message to the therapy AI
   const sendMessage = useCallback(async (content: string): Promise<void> => {
@@ -27,6 +31,24 @@ export function useConversation() {
       return;
     }
 
+    // Simple rate limiting (max 10 requests per minute)
+    const now = Date.now();
+    const oneMinute = 60 * 1000;
+    
+    if (now - lastRequestTime < oneMinute) {
+      if (requestCount >= 10) {
+        dispatch({ 
+          type: 'SET_CONVERSATION_ERROR', 
+          payload: 'Too many requests. Please wait a moment before trying again.' 
+        });
+        return;
+      }
+      setRequestCount(prev => prev + 1);
+    } else {
+      setRequestCount(1);
+      setLastRequestTime(now);
+    }
+
     try {
       dispatch({ type: 'SET_PROCESSING', payload: true });
       dispatch({ type: 'SET_CONVERSATION_ERROR', payload: undefined });
@@ -42,35 +64,14 @@ export function useConversation() {
       };
       dispatch({ type: 'ADD_MESSAGE', payload: userMessage });
 
-      // Send to therapy API with retry logic
-      let response: TherapyResponse | undefined;
-      let retryCount = 0;
-      const maxRetries = 3;
+      // Send to therapy API (retries handled within ApiClient.enhancedFetch)
+      const response: TherapyResponse = await ApiClient.sendTherapyMessage(
+        user.id,
+        content.trim(),
+        currentSession?.id
+      );
 
-      while (retryCount < maxRetries) {
-        try {
-          response = await ApiClient.sendTherapyMessage(
-            user.id,
-            content.trim(),
-            currentSession?.id
-          );
-          break; // Success, exit retry loop
-        } catch (error) {
-          retryCount++;
-          console.warn(`Therapy API attempt ${retryCount} failed:`, error);
-          
-          if (retryCount >= maxRetries) {
-            throw error; // Re-throw after max retries
-          }
-          
-          // Wait before retry (exponential backoff)
-          await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
-        }
-      }
-
-      if (!response) {
-        throw new Error('Failed to get response from therapy API');
-      }
+      // Response validation handled inside ApiClient; if it returns, we have a valid response
 
       console.log('Received therapy response:', response);
 
@@ -162,7 +163,7 @@ export function useConversation() {
     } finally {
       dispatch({ type: 'SET_PROCESSING', payload: false });
     }
-  }, [user, currentSession, dispatch]);
+  }, [user, currentSession, dispatch, lastRequestTime, requestCount]);
 
   // Process audio input
   const processAudioMessage = useCallback(async (audioBlob: Blob, sessionId?: string): Promise<void> => {

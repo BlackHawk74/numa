@@ -30,7 +30,7 @@ export function SessionHistory({ userId, onSessionSelect, className = '' }: Sess
       const currentPage = reset ? 0 : page;
       const offset = currentPage * SESSIONS_PER_PAGE;
 
-      const response = await SessionService.getUserSessions(userId, SESSIONS_PER_PAGE, offset);
+      const response = await SessionService.getUserSessions(SESSIONS_PER_PAGE, offset);
 
       if (reset) {
         setSessions(response.sessions);

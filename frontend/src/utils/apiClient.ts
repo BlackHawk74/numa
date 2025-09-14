@@ -2,6 +2,7 @@
 
 import { STTResponse, TherapyResponse, Session, Goal, User } from '../types';
 import { ErrorHandler, NetworkMonitor } from './errorHandling';
+import { supabase } from '../lib/supabase';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
@@ -14,6 +15,28 @@ export class ApiClient {
     maxDelay: 10000,
     backoffFactor: 2,
   };
+  
+  // Request deduplication cache
+  private static pendingRequests = new Map<string, Promise<any>>();
+
+  /**
+   * Get authentication headers from Supabase
+   */
+  private static async getAuthHeaders(): Promise<Record<string, string>> {
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+    
+    if (session?.access_token) {
+      headers['Authorization'] = `Bearer ${session.access_token}`;
+    } else {
+      throw new Error('Authentication required. Please sign in to continue.');
+    }
+    
+    return headers;
+  }
 
   /**
    * Enhanced fetch with timeout, retry logic, and error handling
@@ -21,33 +44,54 @@ export class ApiClient {
   private static async enhancedFetch(
     url: string,
     options: RequestInit = {},
-    retryable: boolean = true
+    retryable: boolean = true,
+    deduplicate: boolean = false
   ): Promise<Response> {
     // Check network connectivity first
     if (!NetworkMonitor.getStatus()) {
       throw new Error('No internet connection available');
     }
 
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), this.requestTimeout);
-
-    const fetchOptions: RequestInit = {
-      ...options,
-      signal: controller.signal,
-    };
+    // Request deduplication for GET requests and specific endpoints
+    if (deduplicate) {
+      const requestKey = `${options.method || 'GET'}:${url}:${JSON.stringify(options.body || {})}`;
+      
+      if (this.pendingRequests.has(requestKey)) {
+        console.log('Deduplicating request:', requestKey);
+        return this.pendingRequests.get(requestKey)!;
+      }
+    }
 
     const operation = async (): Promise<Response> => {
+      let controller: AbortController | undefined;
+      let timeoutId: ReturnType<typeof setTimeout> | undefined;
       try {
+        // Create a fresh controller and timeout per attempt
+        controller = new AbortController();
+        timeoutId = setTimeout(() => controller!.abort(), this.requestTimeout);
+
+        const fetchOptions: RequestInit = {
+          ...options,
+          signal: controller.signal,
+        };
+
         const response = await fetch(url, fetchOptions);
-        clearTimeout(timeoutId);
+        if (timeoutId) clearTimeout(timeoutId);
         
         if (!response.ok) {
+          if (response.status === 401) {
+            throw new Error('Authentication required. Please sign in to continue.');
+          }
+          if (response.status === 429) {
+            throw new Error('Too many requests. Please wait a moment before trying again.');
+          }
           throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
         
         return response;
       } catch (error) {
-        clearTimeout(timeoutId);
+        // Ensure timeout is cleared even on error
+        if (timeoutId) clearTimeout(timeoutId);
         
         if (error instanceof Error && error.name === 'AbortError') {
           throw new Error('Request timeout - please try again');
@@ -57,17 +101,33 @@ export class ApiClient {
       }
     };
 
-    if (retryable) {
-      return ErrorHandler.withRetry(
-        operation,
-        this.retryConfig,
-        (attempt, error) => {
-          console.warn(`API request attempt ${attempt} failed:`, error.message);
-        }
-      );
-    } else {
-      return operation();
+    const executeRequest = async (): Promise<Response> => {
+      if (retryable) {
+        return ErrorHandler.withRetry(
+          operation,
+          this.retryConfig,
+          (attempt, error) => {
+            console.warn(`API request attempt ${attempt} failed:`, error.message);
+          }
+        );
+      } else {
+        return operation();
+      }
+    };
+
+    // Handle deduplication
+    if (deduplicate) {
+      const requestKey = `${options.method || 'GET'}:${url}:${JSON.stringify(options.body || {})}`;
+      const requestPromise = executeRequest().finally(() => {
+        // Clean up after request completes
+        this.pendingRequests.delete(requestKey);
+      });
+      
+      this.pendingRequests.set(requestKey, requestPromise);
+      return requestPromise;
     }
+
+    return executeRequest();
   }
 
   /**
@@ -91,8 +151,17 @@ export class ApiClient {
       const formData = new FormData();
       formData.append('audio', audioBlob, 'recording.webm');
 
+      // Get auth headers (but don't add Content-Type for FormData)
+      const { data: { session } } = await supabase.auth.getSession();
+      const headers: Record<string, string> = {};
+      
+      if (session?.access_token) {
+        headers['Authorization'] = `Bearer ${session.access_token}`;
+      }
+
       const response = await this.enhancedFetch(`${this.baseUrl}/api/stt`, {
         method: 'POST',
+        headers,
         body: formData,
       });
 
@@ -136,11 +205,11 @@ export class ApiClient {
         throw new Error('Message is too long (max 1000 characters)');
       }
 
+      const headers = await this.getAuthHeaders();
+
       const response = await this.enhancedFetch(`${this.baseUrl}/api/therapy`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers,
         body: JSON.stringify({
           userId: userId.trim(),
           message: message.trim(),
@@ -194,20 +263,15 @@ export class ApiClient {
    * Create a new session
    */
   static async createSession(userId: string): Promise<Session> {
-    const response = await fetch(`${this.baseUrl}/api/sessions`, {
+    const headers = await this.getAuthHeaders();
+    
+    const response = await this.enhancedFetch(`${this.baseUrl}/api/sessions`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers,
       body: JSON.stringify({
         userId,
       }),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Session creation error: ${response.status} ${response.statusText} - ${errorText}`);
-    }
+    }, true, true); // Enable retry and deduplication
 
     const result = await response.json();
     return result.session || result;
@@ -273,20 +337,16 @@ export class ApiClient {
    * Create a new user
    */
   static async createUser(name?: string, preferences?: Record<string, any>): Promise<User> {
-    const response = await fetch(`${this.baseUrl}/api/users`, {
+    const headers = await this.getAuthHeaders();
+    
+    const response = await this.enhancedFetch(`${this.baseUrl}/api/users`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers,
       body: JSON.stringify({
         name,
         preferences,
       }),
     });
-
-    if (!response.ok) {
-      throw new Error(`User creation error: ${response.statusText}`);
-    }
 
     const result = await response.json();
     return result.user;
@@ -349,20 +409,15 @@ export class ApiClient {
       activeGoals: Goal[];
     };
   }> {
-    const response = await fetch(`${this.baseUrl}/api/sessions/initialize`, {
+    const headers = await this.getAuthHeaders();
+    
+    const response = await this.enhancedFetch(`${this.baseUrl}/api/sessions/initialize`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers,
       body: JSON.stringify({
         userId,
       }),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Session initialization error: ${response.status} ${response.statusText} - ${errorText}`);
-    }
+    }, true, true); // Enable retry and deduplication
 
     return response.json();
   }
@@ -464,7 +519,10 @@ export class ApiClient {
 
 // Export default instance for convenience
 export const apiClient = {
-  get: async (url: string, options?: { params?: Record<string, any> }) => {
+  get: async (url: string, options?: { 
+    params?: Record<string, any>;
+    headers?: Record<string, string>;
+  }) => {
     const searchParams = options?.params ? new URLSearchParams(options.params).toString() : '';
     const fullUrl = `${API_BASE_URL}${url}${searchParams ? `?${searchParams}` : ''}`;
     
@@ -472,6 +530,7 @@ export const apiClient = {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
+        ...options?.headers,
       },
     });
 
@@ -482,11 +541,12 @@ export const apiClient = {
     return { data: await response.json() };
   },
 
-  post: async (url: string, data?: any) => {
+  post: async (url: string, data?: any, options?: { headers?: Record<string, string> }) => {
     const response = await fetch(`${API_BASE_URL}${url}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        ...options?.headers,
       },
       body: data ? JSON.stringify(data) : undefined,
     });
@@ -498,11 +558,12 @@ export const apiClient = {
     return { data: await response.json() };
   },
 
-  put: async (url: string, data?: any) => {
+  put: async (url: string, data?: any, options?: { headers?: Record<string, string> }) => {
     const response = await fetch(`${API_BASE_URL}${url}`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
+        ...options?.headers,
       },
       body: data ? JSON.stringify(data) : undefined,
     });
@@ -514,11 +575,12 @@ export const apiClient = {
     return { data: await response.json() };
   },
 
-  delete: async (url: string) => {
+  delete: async (url: string, options?: { headers?: Record<string, string> }) => {
     const response = await fetch(`${API_BASE_URL}${url}`, {
       method: 'DELETE',
       headers: {
         'Content-Type': 'application/json',
+        ...options?.headers,
       },
     });
 

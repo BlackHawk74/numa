@@ -86,7 +86,17 @@ export class AudioUtils {
    */
   static async startRecording(): Promise<void> {
     if (!this.stream) {
-      throw new Error('No audio stream available. Request permission first.');
+      // Attempt to re-acquire microphone stream if permission was granted previously
+      try {
+        const ok = await this.requestMicrophonePermission();
+        if (!ok || !this.stream) {
+          throw new Error('No audio stream available. Request permission first.');
+        }
+      } catch (err) {
+        // Re-throw with the original, user-friendly message
+        const msg = err instanceof Error ? err.message : 'Failed to access microphone';
+        throw new Error(msg);
+      }
     }
 
     this.audioChunks = [];

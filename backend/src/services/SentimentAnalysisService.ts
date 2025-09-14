@@ -1,4 +1,4 @@
-import { HfInference } from '@huggingface/inference';
+import { InferenceClient } from '@huggingface/inference';
 import { huggingFaceClient } from './HuggingFaceClient';
 
 export interface SentimentResult {
@@ -17,7 +17,7 @@ export interface SentimentOptions {
  * Sentiment analysis service for detecting user emotions
  */
 export class SentimentAnalysisService {
-  private client: HfInference;
+  private client: InferenceClient;
   private readonly MODEL_NAME = 'j-hartmann/emotion-english-distilroberta-base';
   private readonly DEFAULT_MAX_RETRIES = 3;
   private readonly DEFAULT_RETRY_DELAY = 1000;
@@ -52,7 +52,8 @@ export class SentimentAnalysisService {
       try {
         console.log(`Sentiment analysis attempt ${attempt}/${maxRetries} using model: ${this.MODEL_NAME}`);
 
-        const result = await this.client.textClassification({
+        // Use enhanced HuggingFace client with caching and monitoring
+        const result = await huggingFaceClient.textClassification({
           model: this.MODEL_NAME,
           inputs: text.substring(0, 512) // Limit text length
         });

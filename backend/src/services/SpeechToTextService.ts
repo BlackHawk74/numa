@@ -1,4 +1,4 @@
-import { HfInference } from '@huggingface/inference';
+import { InferenceClient } from '@huggingface/inference';
 import { huggingFaceClient } from './HuggingFaceClient';
 
 export interface STTResult {
@@ -17,8 +17,9 @@ export interface STTOptions {
  * Speech-to-Text service using HuggingFace Whisper Large v3 Turbo
  */
 export class SpeechToTextService {
-  private client: HfInference;
-  private readonly MODEL_NAME = 'openai/whisper-large-v3-turbo';
+  private client: InferenceClient;
+  // Prefer a free, HF-available Whisper model for ASR
+  private readonly MODEL_NAME = 'distil-whisper/distil-large-v3';
   private readonly DEFAULT_MAX_RETRIES = 3;
   private readonly DEFAULT_RETRY_DELAY = 1000; // 1 second
 
@@ -59,12 +60,10 @@ export class SpeechToTextService {
           }
         }
 
-        const result = await this.client.automaticSpeechRecognition({
+        // Use enhanced HuggingFace client with caching and monitoring
+        const result = await huggingFaceClient.automaticSpeechRecognition({
           model: this.MODEL_NAME,
-          data: audioData,
-          parameters: {
-            language: language || 'en'
-          }
+          data: audioData
         });
 
         if (result && result.text) {

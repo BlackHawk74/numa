@@ -13,13 +13,24 @@ This document describes all the API endpoints implemented for the Numa AI Therap
 
 Currently, no authentication is required. User identification is handled via UUID parameters.
 
-## Rate Limiting
+## Rate Limiting & Cost Optimization
 
-- 100 requests per 15 minutes per IP address
-- Rate limit headers included in responses:
-  - `X-RateLimit-Limit`: Maximum requests allowed
-  - `X-RateLimit-Remaining`: Remaining requests in current window
-  - `X-RateLimit-Reset`: When the rate limit resets
+- **Enhanced Rate Limiting**: Different limits for different endpoint types:
+  - General endpoints: 100 requests per 15 minutes
+  - API endpoints: 50 requests per 15 minutes  
+  - Expensive operations (STT/TTS/Therapy): 20 requests per 15 minutes
+- **Request Caching**: HuggingFace API responses cached for 5-30 minutes
+- **Performance Monitoring**: Real-time tracking of response times and error rates
+- **Usage Monitoring**: Cost estimation and alerting system
+- **Database Optimization**: Query caching and connection pooling
+
+Rate limit headers included in responses:
+- `X-RateLimit-Limit`: Maximum requests allowed
+- `X-RateLimit-Remaining`: Remaining requests in current window
+- `X-RateLimit-Reset`: When the rate limit resets
+- `X-Cache`: Cache status (HIT/MISS)
+- `X-Response-Time`: Request processing time
+- `X-Response-Size`: Response size in bytes
 
 ## Error Handling
 
@@ -226,6 +237,285 @@ Check if browser TTS is available.
   "browserTTSAvailable": false,
   "availableVoices": [],
   "recommendation": "Use fallback TTS service"
+}
+```
+
+## Monitoring & Performance Endpoints
+
+### GET /api/monitoring/metrics
+
+Get current performance metrics and usage statistics.
+
+**Response:**
+```json
+{
+  "performance": {
+    "averageResponseTime": 1250.5,
+    "p95ResponseTime": 2800,
+    "errorRate": 0.02,
+    "throughput": 15.3,
+    "cacheHitRate": 0.75,
+    "apiCallsPerMinute": 8.2,
+    "estimatedHourlyCost": 0.15
+  },
+  "usage": {
+    "totalRequests": 1543,
+    "apiCalls": 245,
+    "cacheHits": 184,
+    "cacheMisses": 61,
+    "costEstimate": 2.45,
+    "lastReset": "2025-09-13T12:00:00.000Z"
+  },
+  "cache": {
+    "size": 156,
+    "maxSize": 1000
+  },
+  "queue": {
+    "queueLength": 2,
+    "activeRequests": 1,
+    "maxConcurrent": 3
+  },
+  "database": {
+    "size": 45,
+    "maxSize": 500
+  },
+  "audio": {
+    "averageProcessingTime": 3200,
+    "p95ProcessingTime": 5800,
+    "successRate": 0.98,
+    "totalProcessed": 89,
+    "byEndpoint": {
+      "stt": {
+        "count": 45,
+        "averageTime": 4200,
+        "successRate": 0.97
+      },
+      "tts": {
+        "count": 32,
+        "averageTime": 2800,
+        "successRate": 1.0
+      },
+      "therapy": {
+        "count": 12,
+        "averageTime": 1800,
+        "successRate": 0.95
+      }
+    }
+  },
+  "timestamp": "2025-09-13T12:54:25.519Z"
+}
+```
+
+### GET /api/monitoring/alerts
+
+Get recent alerts with optional filtering.
+
+**Query Parameters:**
+- `limit` (optional): Number of alerts to return (default: 50)
+- `severity` (optional): Filter by severity (low, medium, high, critical)
+
+**Response:**
+```json
+{
+  "alerts": [
+    {
+      "type": "cost",
+      "severity": "high",
+      "message": "Estimated hourly cost exceeds threshold: $5.25",
+      "value": 5.25,
+      "threshold": 5.0,
+      "timestamp": "2025-09-13T12:45:00.000Z",
+      "metadata": {
+        "metrics": "..."
+      }
+    }
+  ],
+  "count": 1,
+  "timestamp": "2025-09-13T12:54:25.519Z"
+}
+```
+
+### GET /api/monitoring/report
+
+Get comprehensive usage report with recommendations.
+
+**Response:**
+```json
+{
+  "summary": {
+    "averageResponseTime": 1250.5,
+    "errorRate": 0.02,
+    "cacheHitRate": 0.75,
+    "estimatedHourlyCost": 0.15
+  },
+  "alerts": [
+    "Recent alerts..."
+  ],
+  "recommendations": [
+    "Consider increasing cache TTL or improving cache key generation",
+    "Monitor API usage closely - approaching cost threshold"
+  ],
+  "thresholds": {
+    "costPerHour": 5.0,
+    "errorRate": 0.05,
+    "averageResponseTime": 2000,
+    "p95ResponseTime": 5000,
+    "apiCallsPerMinute": 100,
+    "cacheHitRate": 0.7
+  }
+}
+```
+
+### GET /api/monitoring/thresholds
+
+Get current monitoring thresholds.
+
+**Response:**
+```json
+{
+  "thresholds": {
+    "costPerHour": 5.0,
+    "errorRate": 0.05,
+    "averageResponseTime": 2000,
+    "p95ResponseTime": 5000,
+    "apiCallsPerMinute": 100,
+    "cacheHitRate": 0.7
+  }
+}
+```
+
+### PUT /api/monitoring/thresholds
+
+Update monitoring thresholds.
+
+**Request:**
+```json
+{
+  "costPerHour": 10.0,
+  "errorRate": 0.03,
+  "averageResponseTime": 1500
+}
+```
+
+**Response:**
+```json
+{
+  "message": "Thresholds updated successfully",
+  "thresholds": {
+    "costPerHour": 10.0,
+    "errorRate": 0.03,
+    "averageResponseTime": 1500,
+    "p95ResponseTime": 5000,
+    "apiCallsPerMinute": 100,
+    "cacheHitRate": 0.7
+  }
+}
+```
+
+### GET /api/monitoring/audio-performance
+
+Get detailed audio processing performance statistics.
+
+**Response:**
+```json
+{
+  "averageProcessingTime": 3200,
+  "p95ProcessingTime": 5800,
+  "successRate": 0.98,
+  "totalProcessed": 89,
+  "byEndpoint": {
+    "stt": {
+      "count": 45,
+      "averageTime": 4200,
+      "successRate": 0.97
+    },
+    "tts": {
+      "count": 32,
+      "averageTime": 2800,
+      "successRate": 1.0
+    },
+    "therapy": {
+      "count": 12,
+      "averageTime": 1800,
+      "successRate": 0.95
+    }
+  }
+}
+```
+
+### GET /api/monitoring/health
+
+Detailed system health check with performance metrics.
+
+**Response:**
+```json
+{
+  "status": "healthy",
+  "metrics": {
+    "responseTime": 1250.5,
+    "errorRate": 0.02,
+    "throughput": 15.3,
+    "cacheHitRate": 0.75,
+    "estimatedCost": 0.15
+  },
+  "alerts": {
+    "total": 3,
+    "critical": 0
+  },
+  "timestamp": "2025-09-13T12:54:25.519Z"
+}
+```
+
+### DELETE /api/monitoring/alerts
+
+Clear old alerts.
+
+**Query Parameters:**
+- `hours` (optional): Clear alerts older than specified hours (default: 24)
+
+**Response:**
+```json
+{
+  "message": "Cleared alerts older than 24 hours"
+}
+```
+
+### DELETE /api/monitoring/audio-metrics
+
+Clear old audio performance metrics.
+
+**Query Parameters:**
+- `hours` (optional): Clear metrics older than specified hours (default: 24)
+
+**Response:**
+```json
+{
+  "message": "Cleared audio metrics older than 24 hours"
+}
+```
+
+### POST /api/monitoring/reset-stats
+
+Reset usage statistics.
+
+**Response:**
+```json
+{
+  "message": "Usage statistics reset successfully"
+}
+```
+
+### POST /api/monitoring/clear-cache
+
+Clear various caches.
+
+**Query Parameters:**
+- `type` (optional): Cache type to clear (request, database, queue, or omit for all)
+
+**Response:**
+```json
+{
+  "message": "Cache cleared: all"
 }
 ```
 

@@ -2,11 +2,12 @@ import { HuggingFaceClient } from '../HuggingFaceClient';
 
 // Mock the HuggingFace inference client
 jest.mock('@huggingface/inference', () => ({
-  HfInference: jest.fn().mockImplementation((apiKey) => ({
+  InferenceClient: jest.fn().mockImplementation((apiKey) => ({
     textGeneration: jest.fn(),
     automaticSpeechRecognition: jest.fn(),
     textToSpeech: jest.fn(),
-    textClassification: jest.fn()
+    textClassification: jest.fn(),
+    chatCompletion: jest.fn()
   }))
 }));
 
@@ -34,19 +35,20 @@ describe('HuggingFaceClient', () => {
       expect(client.isConfigured()).toBe(true);
     });
 
-    it('should throw error when no API key is provided', () => {
+    it('should create client with dummy key when no API key is provided', () => {
       delete process.env.HUGGINGFACE_API_KEY;
-      expect(() => new HuggingFaceClient()).toThrow('HuggingFace API key is required');
+      const client = new HuggingFaceClient();
+      expect(client.isConfigured()).toBe(false);
     });
   });
 
   describe('testConnection', () => {
     it('should return true when connection test succeeds', async () => {
-      const { HfInference } = require('@huggingface/inference');
+      const { InferenceClient } = require('@huggingface/inference');
       const mockClient = {
         textGeneration: jest.fn().mockResolvedValue({ generated_text: 'test' })
       };
-      HfInference.mockImplementation(() => mockClient);
+      InferenceClient.mockImplementation(() => mockClient);
 
       const client = new HuggingFaceClient('test-api-key');
       const result = await client.testConnection();
@@ -60,13 +62,13 @@ describe('HuggingFaceClient', () => {
     });
 
     it('should return false when connection test fails', async () => {
-      const { HfInference } = require('@huggingface/inference');
-      const mockClient = {
-        textGeneration: jest.fn().mockRejectedValue(new Error('API Error'))
-      };
-      HfInference.mockImplementation(() => mockClient);
-
+      // Create a new client instance that will use the mocked methods
       const client = new HuggingFaceClient('test-api-key');
+      
+      // Mock the client methods directly
+      jest.spyOn(client, 'textGeneration').mockRejectedValue(new Error('API Error'));
+      jest.spyOn(client, 'chatCompletion').mockRejectedValue(new Error('Chat API Error'));
+
       const result = await client.testConnection();
 
       expect(result).toBe(false);
@@ -89,7 +91,8 @@ describe('HuggingFaceClient', () => {
 
     it('should return false when API key is empty', () => {
       delete process.env.HUGGINGFACE_API_KEY;
-      expect(() => new HuggingFaceClient('')).toThrow();
+      const client = new HuggingFaceClient('');
+      expect(client.isConfigured()).toBe(false);
     });
   });
 });

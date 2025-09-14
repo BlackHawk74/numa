@@ -1,5 +1,6 @@
 import { User, Session, Goal } from '../types';
 import { apiClient } from '../utils/apiClient';
+import { supabase } from '../lib/supabase';
 
 export interface UserContextResponse {
   user: User;
@@ -19,15 +20,25 @@ export class UserService {
   private static readonly BASE_URL = '/api/users';
 
   /**
-   * Create a new user (registration)
+   * Create a new user (authenticated)
    */
   static async createUser(name?: string, preferences?: Record<string, any>): Promise<User> {
     try {
       console.log('Creating new user:', { name, preferences });
 
+      // Get auth token
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error('User not authenticated');
+      }
+
       const response = await apiClient.post(this.BASE_URL, {
         name: name || 'Anonymous User',
         preferences: preferences || {}
+      }, {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`
+        }
       });
 
       if (!response.data.user) {
@@ -46,13 +57,23 @@ export class UserService {
   }
 
   /**
-   * Get a user by ID
+   * Get current authenticated user
    */
-  static async getUser(userId: string): Promise<User> {
+  static async getCurrentUser(): Promise<User> {
     try {
-      console.log('Fetching user:', userId);
+      console.log('Fetching current user');
 
-      const response = await apiClient.get(`${this.BASE_URL}/${userId}`);
+      // Get auth token
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error('User not authenticated');
+      }
+
+      const response = await apiClient.get(`${this.BASE_URL}/me`, {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`
+        }
+      });
 
       if (!response.data.user) {
         throw new Error('No user data received from server');
@@ -70,19 +91,28 @@ export class UserService {
   }
 
   /**
-   * Update a user
+   * Update current authenticated user
    */
   static async updateUser(
-    userId: string,
     updates: {
       name?: string;
       preferences?: Record<string, any>;
     }
   ): Promise<User> {
     try {
-      console.log('Updating user:', userId, updates);
+      console.log('Updating user:', updates);
 
-      const response = await apiClient.put(`${this.BASE_URL}/${userId}`, updates);
+      // Get auth token
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error('User not authenticated');
+      }
+
+      const response = await apiClient.put(`${this.BASE_URL}/me`, updates, {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`
+        }
+      });
 
       if (!response.data.user) {
         throw new Error('No user data received from server');
@@ -100,13 +130,23 @@ export class UserService {
   }
 
   /**
-   * Get user with context (recent sessions and active goals)
+   * Get current user with context (recent sessions and active goals)
    */
-  static async getUserContext(userId: string): Promise<UserContextResponse> {
+  static async getUserContext(): Promise<UserContextResponse> {
     try {
-      console.log('Fetching user context:', userId);
+      console.log('Fetching user context');
 
-      const response = await apiClient.get(`${this.BASE_URL}/${userId}/context`);
+      // Get auth token
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error('User not authenticated');
+      }
+
+      const response = await apiClient.get(`${this.BASE_URL}/me/context`, {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`
+        }
+      });
 
       return response.data;
     } catch (error) {
@@ -123,11 +163,10 @@ export class UserService {
    * Update user preferences
    */
   static async updatePreferences(
-    userId: string,
     preferences: Record<string, any>
   ): Promise<User> {
     try {
-      return await this.updateUser(userId, { preferences });
+      return await this.updateUser({ preferences });
     } catch (error) {
       console.error('Error updating preferences:', error);
       throw error;
@@ -135,45 +174,51 @@ export class UserService {
   }
 
   /**
-   * Initialize user session (create user if needed and get context)
+   * Initialize authenticated user session
    */
-  static async initializeUser(name?: string): Promise<{
+  static async initializeUser(): Promise<{
     user: User;
     isNewUser: boolean;
     context?: UserContextResponse;
   }> {
     try {
-      // Check if user exists in localStorage
-      const existingUserId = localStorage.getItem('numa_user_id');
+      console.log('UserService.initializeUser: Starting...');
       
-      if (existingUserId) {
-        try {
-          // Try to get existing user context
-          const context = await this.getUserContext(existingUserId);
-          return {
-            user: context.user,
-            isNewUser: false,
-            context
-          };
-        } catch (error) {
-          console.warn('Failed to load existing user, creating new one:', error);
-          // Clear invalid user ID
-          localStorage.removeItem('numa_user_id');
-        }
+      // Check if user is authenticated
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error('User not authenticated');
       }
 
-      // Create new user
-      const user = await this.createUser(name);
-      
-      // Store user ID for future sessions
-      localStorage.setItem('numa_user_id', user.id);
+      console.log('UserService.initializeUser: User authenticated, ID:', session.user.id);
 
-      return {
-        user,
-        isNewUser: true
-      };
+      try {
+        // Try to get existing user context
+        console.log('UserService.initializeUser: Checking for existing user...');
+        const context = await this.getUserContext();
+        console.log('UserService.initializeUser: Found existing user');
+        return {
+          user: context.user,
+          isNewUser: false,
+          context
+        };
+      } catch (error) {
+        console.warn('UserService.initializeUser: User not found in database, creating new record:', error);
+        
+        // Create user record in our database
+        console.log('UserService.initializeUser: Creating new user record...');
+        const user = await this.createUser(
+          session.user.user_metadata?.name
+        );
+
+        console.log('UserService.initializeUser: New user created:', user.id);
+        return {
+          user,
+          isNewUser: true
+        };
+      }
     } catch (error) {
-      console.error('Error initializing user:', error);
+      console.error('UserService.initializeUser: Error:', error);
       throw new Error(
         error instanceof Error 
           ? `Failed to initialize user: ${error.message}`
@@ -183,17 +228,11 @@ export class UserService {
   }
 
   /**
-   * Get current user from localStorage
+   * Get current authenticated user ID
    */
-  static getCurrentUserId(): string | null {
-    return localStorage.getItem('numa_user_id');
-  }
-
-  /**
-   * Clear current user session
-   */
-  static clearCurrentUser(): void {
-    localStorage.removeItem('numa_user_id');
+  static async getCurrentUserId(): Promise<string | null> {
+    const { data: { session } } = await supabase.auth.getSession();
+    return session?.user?.id || null;
   }
 
   /**
@@ -206,11 +245,12 @@ export class UserService {
   /**
    * Mark onboarding as completed
    */
-  static async completeOnboarding(userId: string): Promise<User> {
+  static async completeOnboarding(): Promise<User> {
     try {
-      const currentPreferences = await this.getUser(userId).then(u => u.preferences || {});
+      const currentUser = await this.getCurrentUser();
+      const currentPreferences = currentUser.preferences || {};
       
-      return await this.updatePreferences(userId, {
+      return await this.updatePreferences({
         ...currentPreferences,
         onboardingCompleted: true,
         onboardingCompletedAt: new Date().toISOString()

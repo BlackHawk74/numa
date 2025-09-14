@@ -1,4 +1,4 @@
-import { HfInference } from '@huggingface/inference';
+import { InferenceClient } from '@huggingface/inference';
 import { huggingFaceClient } from './HuggingFaceClient';
 
 export interface SessionSummaryOptions {
@@ -20,7 +20,7 @@ export interface SessionSummaryResult {
  * Service for generating session summaries using AI
  */
 export class SessionSummaryService {
-  private client: HfInference;
+  private client: InferenceClient;
   private readonly MODEL_NAME = 'gpt2';
   private readonly DEFAULT_MAX_RETRIES = 3;
   private readonly DEFAULT_RETRY_DELAY = 1000;

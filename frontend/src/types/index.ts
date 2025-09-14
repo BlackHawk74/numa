@@ -30,11 +30,13 @@ export interface Goal {
 
 export interface Message {
   id: string;
-  speaker: 'user' | 'numa';
+  speaker: 'user' | 'numa' | 'system';
   content: string;
   timestamp: Date;
   emotion?: string;
   confidence?: number;
+  session_id?: string;
+  metadata?: Record<string, any>;
 }
 
 export interface AudioState {

@@ -1,51 +1,26 @@
 import { Router, Request, Response } from 'express';
 import { SessionRepository } from '../database/repositories/SessionRepository';
 import { UserRepository } from '../database/repositories/UserRepository';
+import { authenticateUser, ensureUserExists } from '../middleware/auth';
 
 const router = Router();
 
 /**
- * GET /api/sessions/:userId
- * Get sessions for a specific user
+ * GET /api/sessions
+ * Get sessions for current authenticated user
  */
-router.get('/:userId', async (req: Request, res: Response) => {
+router.get('/', authenticateUser, ensureUserExists, async (req: Request, res: Response) => {
   try {
-    const { userId } = req.params;
     const limit = parseInt(req.query.limit as string) || 10;
     const offset = parseInt(req.query.offset as string) || 0;
 
-    if (!userId) {
-      return res.status(400).json({
-        error: 'Missing user ID',
-        message: 'User ID is required'
-      });
-    }
-
-    // Validate UUID format
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-    if (!uuidRegex.test(userId)) {
-      return res.status(400).json({
-        error: 'Invalid user ID format',
-        message: 'userId must be a valid UUID'
-      });
-    }
-
-    console.log(`Fetching sessions for user: ${userId}, limit: ${limit}, offset: ${offset}`);
-
-    // Verify user exists
-    const user = await UserRepository.findById(userId);
-    if (!user) {
-      return res.status(404).json({
-        error: 'User not found',
-        message: 'The specified user does not exist'
-      });
-    }
+    console.log(`Fetching sessions for user: ${req.userId}, limit: ${limit}, offset: ${offset}`);
 
     // Get sessions
-    const sessions = await SessionRepository.findByUserId(userId, limit, offset);
-    
+    const sessions = await SessionRepository.findByUserId(req.userId!, limit, offset);
+
     // Get session statistics
-    const stats = await SessionRepository.getSessionStats(userId);
+    const stats = await SessionRepository.getSessionStats(req.userId!);
 
     res.json({
       sessions,
@@ -59,7 +34,7 @@ router.get('/:userId', async (req: Request, res: Response) => {
 
   } catch (error) {
     console.error('Get sessions endpoint error:', error);
-    
+
     res.status(500).json({
       error: 'Internal server error',
       message: error instanceof Error ? error.message : 'Unknown error occurred'
@@ -71,25 +46,16 @@ router.get('/:userId', async (req: Request, res: Response) => {
  * POST /api/sessions/initialize
  * Initialize a new session with user context
  */
-router.post('/initialize', async (req: Request, res: Response) => {
+router.post('/initialize', authenticateUser, ensureUserExists, async (req: Request, res: Response) => {
   try {
-    const { userId } = req.body;
-
-    if (!userId) {
-      return res.status(400).json({
-        error: 'Missing required field',
-        message: 'userId is required'
-      });
-    }
-
-    console.log(`Initializing new session for user: ${userId}`);
+    console.log(`Initializing new session for user: ${req.userId}`);
 
     // Get user context (user, recent sessions, active goals)
-    const userContext = await UserRepository.getUserWithContext(userId);
+    const userContext = await UserRepository.getUserWithContext(req.userId!);
 
     // Create new session
     const session = await SessionRepository.create({
-      user_id: userId,
+      user_id: req.userId!,
       transcript: '',
       status: 'active'
     });
@@ -106,7 +72,7 @@ router.post('/initialize', async (req: Request, res: Response) => {
 
   } catch (error) {
     console.error('Initialize session endpoint error:', error);
-    
+
     res.status(500).json({
       error: 'Internal server error',
       message: error instanceof Error ? error.message : 'Unknown error occurred'
@@ -118,31 +84,15 @@ router.post('/initialize', async (req: Request, res: Response) => {
  * POST /api/sessions
  * Create a new session
  */
-router.post('/', async (req: Request, res: Response) => {
+router.post('/', authenticateUser, ensureUserExists, async (req: Request, res: Response) => {
   try {
-    const { userId, transcript, emotion } = req.body;
+    const { transcript, emotion } = req.body;
 
-    if (!userId) {
-      return res.status(400).json({
-        error: 'Missing required field',
-        message: 'userId is required'
-      });
-    }
-
-    console.log(`Creating new session for user: ${userId}`);
-
-    // Verify user exists
-    const user = await UserRepository.findById(userId);
-    if (!user) {
-      return res.status(404).json({
-        error: 'User not found',
-        message: 'The specified user does not exist'
-      });
-    }
+    console.log(`Creating new session for user: ${req.userId}`);
 
     // Create session
     const session = await SessionRepository.create({
-      user_id: userId,
+      user_id: req.userId!,
       transcript: transcript || '',
       emotion: emotion || null,
       status: 'active'
@@ -155,7 +105,7 @@ router.post('/', async (req: Request, res: Response) => {
 
   } catch (error) {
     console.error('Create session endpoint error:', error);
-    
+
     res.status(500).json({
       error: 'Internal server error',
       message: error instanceof Error ? error.message : 'Unknown error occurred'
@@ -165,9 +115,9 @@ router.post('/', async (req: Request, res: Response) => {
 
 /**
  * GET /api/sessions/session/:sessionId
- * Get a specific session by ID
+ * Get a specific session by ID (must belong to authenticated user)
  */
-router.get('/session/:sessionId', async (req: Request, res: Response) => {
+router.get('/session/:sessionId', authenticateUser, ensureUserExists, async (req: Request, res: Response) => {
   try {
     const { sessionId } = req.params;
 
@@ -190,7 +140,7 @@ router.get('/session/:sessionId', async (req: Request, res: Response) => {
     console.log(`Fetching session: ${sessionId}`);
 
     const session = await SessionRepository.findById(sessionId);
-    
+
     if (!session) {
       return res.status(404).json({
         error: 'Session not found',
@@ -198,11 +148,19 @@ router.get('/session/:sessionId', async (req: Request, res: Response) => {
       });
     }
 
+    // Verify session belongs to authenticated user
+    if (session.user_id !== req.userId) {
+      return res.status(403).json({
+        error: 'Forbidden',
+        message: 'You can only access your own sessions'
+      });
+    }
+
     res.json({ session });
 
   } catch (error) {
     console.error('Get session endpoint error:', error);
-    
+
     res.status(500).json({
       error: 'Internal server error',
       message: error instanceof Error ? error.message : 'Unknown error occurred'
@@ -212,9 +170,9 @@ router.get('/session/:sessionId', async (req: Request, res: Response) => {
 
 /**
  * PUT /api/sessions/:sessionId
- * Update a session
+ * Update a session (must belong to authenticated user)
  */
-router.put('/:sessionId', async (req: Request, res: Response) => {
+router.put('/:sessionId', authenticateUser, ensureUserExists, async (req: Request, res: Response) => {
   try {
     const { sessionId } = req.params;
     const { transcript, summary, emotion, status, durationMinutes } = req.body;
@@ -228,12 +186,20 @@ router.put('/:sessionId', async (req: Request, res: Response) => {
 
     console.log(`Updating session: ${sessionId}`);
 
-    // Check if session exists
+    // Check if session exists and belongs to user
     const existingSession = await SessionRepository.findById(sessionId);
     if (!existingSession) {
       return res.status(404).json({
         error: 'Session not found',
         message: 'The specified session does not exist'
+      });
+    }
+
+    // Verify session belongs to authenticated user
+    if (existingSession.user_id !== req.userId) {
+      return res.status(403).json({
+        error: 'Forbidden',
+        message: 'You can only update your own sessions'
       });
     }
 
@@ -255,7 +221,7 @@ router.put('/:sessionId', async (req: Request, res: Response) => {
 
   } catch (error) {
     console.error('Update session endpoint error:', error);
-    
+
     res.status(500).json({
       error: 'Internal server error',
       message: error instanceof Error ? error.message : 'Unknown error occurred'
@@ -265,9 +231,9 @@ router.put('/:sessionId', async (req: Request, res: Response) => {
 
 /**
  * POST /api/sessions/:sessionId/complete
- * Complete a session with summary and emotion
+ * Complete a session with summary and emotion (must belong to authenticated user)
  */
-router.post('/:sessionId/complete', async (req: Request, res: Response) => {
+router.post('/:sessionId/complete', authenticateUser, ensureUserExists, async (req: Request, res: Response) => {
   try {
     const { sessionId } = req.params;
     const { summary, emotion, durationMinutes } = req.body;
@@ -288,6 +254,23 @@ router.post('/:sessionId/complete', async (req: Request, res: Response) => {
 
     console.log(`Completing session: ${sessionId}`);
 
+    // Check if session exists and belongs to user
+    const existingSession = await SessionRepository.findById(sessionId);
+    if (!existingSession) {
+      return res.status(404).json({
+        error: 'Session not found',
+        message: 'The specified session does not exist'
+      });
+    }
+
+    // Verify session belongs to authenticated user
+    if (existingSession.user_id !== req.userId) {
+      return res.status(403).json({
+        error: 'Forbidden',
+        message: 'You can only complete your own sessions'
+      });
+    }
+
     // Complete the session
     const completedSession = await SessionRepository.completeSession(
       sessionId,
@@ -303,7 +286,7 @@ router.post('/:sessionId/complete', async (req: Request, res: Response) => {
 
   } catch (error) {
     console.error('Complete session endpoint error:', error);
-    
+
     res.status(500).json({
       error: 'Internal server error',
       message: error instanceof Error ? error.message : 'Unknown error occurred'
@@ -313,9 +296,9 @@ router.post('/:sessionId/complete', async (req: Request, res: Response) => {
 
 /**
  * DELETE /api/sessions/:sessionId
- * Delete a session
+ * Delete a session (must belong to authenticated user)
  */
-router.delete('/:sessionId', async (req: Request, res: Response) => {
+router.delete('/:sessionId', authenticateUser, ensureUserExists, async (req: Request, res: Response) => {
   try {
     const { sessionId } = req.params;
 
@@ -328,12 +311,20 @@ router.delete('/:sessionId', async (req: Request, res: Response) => {
 
     console.log(`Deleting session: ${sessionId}`);
 
-    // Check if session exists
+    // Check if session exists and belongs to user
     const existingSession = await SessionRepository.findById(sessionId);
     if (!existingSession) {
       return res.status(404).json({
         error: 'Session not found',
         message: 'The specified session does not exist'
+      });
+    }
+
+    // Verify session belongs to authenticated user
+    if (existingSession.user_id !== req.userId) {
+      return res.status(403).json({
+        error: 'Forbidden',
+        message: 'You can only delete your own sessions'
       });
     }
 
@@ -346,7 +337,7 @@ router.delete('/:sessionId', async (req: Request, res: Response) => {
 
   } catch (error) {
     console.error('Delete session endpoint error:', error);
-    
+
     res.status(500).json({
       error: 'Internal server error',
       message: error instanceof Error ? error.message : 'Unknown error occurred'

@@ -1,4 +1,4 @@
-import { HfInference } from '@huggingface/inference';
+import { InferenceClient } from '@huggingface/inference';
 import { huggingFaceClient } from './HuggingFaceClient';
 
 export interface ConversationContext {
@@ -27,8 +27,9 @@ export interface ConversationOptions {
  * CBT-based conversation service using Llama 3.1 8B Instruct
  */
 export class ConversationService {
-  private client: HfInference;
-  private readonly MODEL_NAME = 'microsoft/DialoGPT-medium';
+  private client: InferenceClient;
+  // Prefer a free, chat-capable model available on HF serverless
+  private readonly MODEL_NAME = 'google/gemma-2-2b-it';
   private readonly DEFAULT_MAX_RETRIES = 3;
   private readonly DEFAULT_RETRY_DELAY = 1000;
 
@@ -60,16 +61,35 @@ export class ConversationService {
         console.log(`Conversation attempt ${attempt}/${maxRetries} using model: ${this.MODEL_NAME}`);
 
         const systemPrompt = this.buildSystemPrompt(context);
-        const fullPrompt = this.formatPrompt(systemPrompt, userMessage, context);
+        // Prefer chatCompletion with a chat-capable model
+        const chatResp = await huggingFaceClient.chatCompletion({
+          model: this.MODEL_NAME,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userMessage }
+          ],
+          max_tokens: maxTokens,
+          temperature
+        });
 
-        // Temporary fallback response system while we fix model availability
-        console.log('Using fallback response system due to model availability issues');
-        
-        const fallbackResponse = this.generateFallbackResponse(userMessage, context);
-        const suggestedGoal = this.extractGoal(fallbackResponse, context);
+        // Extract assistant content from chat response
+        let extractedResponse = '';
+        if (chatResp?.choices?.[0]?.message?.content) {
+          extractedResponse = chatResp.choices[0].message.content.trim();
+        } else if (typeof chatResp === 'string') {
+          extractedResponse = chatResp.trim();
+        } else if (chatResp?.generated_text) {
+          extractedResponse = chatResp.generated_text.trim();
+        } else {
+          // Fallback: stringify unknown response
+          console.warn('Unexpected chat response format:', chatResp);
+          extractedResponse = JSON.stringify(chatResp);
+        }
+
+        const suggestedGoal = this.extractGoal(extractedResponse, context);
         
         return {
-          response: fallbackResponse,
+          response: extractedResponse,
           suggestedGoal,
           detectedEmotion: context.detectedEmotion
         };
@@ -102,7 +122,7 @@ export class ConversationService {
     const conversationPhase = this.getConversationPhase(context.sessionHistory);
     const phaseGuidance = this.getPhaseGuidance(conversationPhase);
     const cbtTechniques = this.getCBTTechniques(context.detectedEmotion);
-    const sessionContext = context.sessionHistory?.slice(-3).join('\n') || 'This is a new session.';
+    const sessionContext = context.sessionHistory?.slice(-6).join('\n') || 'This is a new session.';
     const goalsContext = context.activeGoals?.join(', ') || 'No active goals yet.';
 
     return `You are Numa, a compassionate CBT-based therapist. Your responses should:

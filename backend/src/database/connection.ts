@@ -1,5 +1,6 @@
 import { supabase } from './supabase';
 import { PostgrestError } from '@supabase/supabase-js';
+import { usageMonitoringService } from '../services/UsageMonitoringService';
 
 // Custom error types for better error handling
 export class DatabaseError extends Error {
@@ -26,18 +27,27 @@ export class ConnectionError extends Error {
   }
 }
 
-// Database connection utilities
+// Enhanced database connection utilities with performance monitoring
 export class DatabaseConnection {
+  private static queryCache = new Map<string, { data: any; timestamp: number; ttl: number }>();
+  private static readonly defaultCacheTTL = 5 * 60 * 1000; // 5 minutes
+  private static readonly maxCacheSize = 500;
+
   /**
    * Test database connection and basic functionality
    */
   static async testConnection(): Promise<boolean> {
+    const startTime = Date.now();
+    
     try {
       // Try to query the users table - if it exists, connection is good
       const { data, error } = await supabase
         .from('users')
         .select('count')
         .limit(1);
+
+      const responseTime = Date.now() - startTime;
+      usageMonitoringService.recordPerformance('database', responseTime, !error);
 
       if (error) {
         // If the table doesn't exist, that's expected before migration
@@ -52,9 +62,96 @@ export class DatabaseConnection {
       console.log('Database connection test successful');
       return true;
     } catch (error) {
+      const responseTime = Date.now() - startTime;
+      usageMonitoringService.recordPerformance('database', responseTime, false);
       console.error('Database connection test error:', error);
       throw new ConnectionError(`Database connection test failed: ${error}`);
     }
+  }
+
+  /**
+   * Execute cached query with performance monitoring
+   */
+  static async cachedQuery<T>(
+    queryKey: string,
+    queryFn: () => Promise<{ data: T | null; error: PostgrestError | null }>,
+    cacheTTL: number = this.defaultCacheTTL
+  ): Promise<T> {
+    const startTime = Date.now();
+    
+    // Check cache first
+    const cached = this.queryCache.get(queryKey);
+    if (cached && Date.now() < cached.timestamp + cached.ttl) {
+      usageMonitoringService.recordPerformance('database-cache', Date.now() - startTime, true);
+      return cached.data;
+    }
+
+    try {
+      // Execute query
+      const result = await queryFn();
+      const responseTime = Date.now() - startTime;
+      
+      if (result.error) {
+        usageMonitoringService.recordPerformance('database', responseTime, false);
+        DatabaseUtils.handleError(result.error, 'cached query');
+      }
+
+      if (result.data === null) {
+        usageMonitoringService.recordPerformance('database', responseTime, false);
+        throw new DatabaseError('No data returned from cached query');
+      }
+
+      // Cache successful result
+      this.setCacheEntry(queryKey, result.data, cacheTTL);
+      usageMonitoringService.recordPerformance('database', responseTime, true);
+      
+      return result.data;
+    } catch (error) {
+      const responseTime = Date.now() - startTime;
+      usageMonitoringService.recordPerformance('database', responseTime, false);
+      throw error;
+    }
+  }
+
+  /**
+   * Set cache entry with LRU eviction
+   */
+  private static setCacheEntry(key: string, data: any, ttl: number): void {
+    // Implement LRU eviction if cache is full
+    if (this.queryCache.size >= this.maxCacheSize) {
+      const oldestKey = this.queryCache.keys().next().value;
+      if (oldestKey) {
+        this.queryCache.delete(oldestKey);
+      }
+    }
+
+    this.queryCache.set(key, {
+      data,
+      timestamp: Date.now(),
+      ttl
+    });
+  }
+
+  /**
+   * Clear expired cache entries
+   */
+  static clearExpiredCache(): void {
+    const now = Date.now();
+    for (const [key, entry] of this.queryCache.entries()) {
+      if (now > entry.timestamp + entry.ttl) {
+        this.queryCache.delete(key);
+      }
+    }
+  }
+
+  /**
+   * Get cache statistics
+   */
+  static getCacheStats(): { size: number; maxSize: number } {
+    return {
+      size: this.queryCache.size,
+      maxSize: this.maxCacheSize
+    };
   }
 
   /**

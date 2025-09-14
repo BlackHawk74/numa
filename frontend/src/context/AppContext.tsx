@@ -33,7 +33,7 @@ const initialAppState: AppState = {
 
 // Action types
 type AppAction =
-  | { type: 'SET_USER'; payload: User }
+  | { type: 'SET_USER'; payload: User | undefined }
   | { type: 'SET_AUDIO_PERMISSION'; payload: boolean }
   | { type: 'SET_RECORDING'; payload: boolean }
   | { type: 'SET_PLAYING'; payload: boolean }

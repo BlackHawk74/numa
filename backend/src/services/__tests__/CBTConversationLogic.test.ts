@@ -3,18 +3,14 @@ import { SentimentAnalysisService } from '../SentimentAnalysisService';
 import type { ConversationContext } from '../ConversationService';
 
 // Mock the HuggingFace client
-jest.mock('../HuggingFaceClient', () => {
-  const mockTextGeneration = jest.fn();
-  const mockTextClassification = jest.fn();
-  return {
-    huggingFaceClient: {
-      getClient: jest.fn(() => ({
-        textGeneration: mockTextGeneration,
-        textClassification: mockTextClassification
-      }))
-    }
-  };
-});
+jest.mock('../HuggingFaceClient', () => ({
+  huggingFaceClient: {
+    textGeneration: jest.fn(),
+    textClassification: jest.fn(),
+    getClient: jest.fn(),
+    isConfigured: jest.fn(() => true)
+  }
+}));
 
 describe('CBT Conversation Logic Integration', () => {
   let conversationService: ConversationService;
@@ -24,12 +20,15 @@ describe('CBT Conversation Logic Integration', () => {
 
   beforeEach(() => {
     const { huggingFaceClient } = require('../HuggingFaceClient');
-    const client = huggingFaceClient.getClient();
-    mockTextGeneration = client.textGeneration;
-    mockTextClassification = client.textClassification;
-    
+    mockTextGeneration = huggingFaceClient.textGeneration;
+    mockTextClassification = huggingFaceClient.textClassification;
+
+    // Reset mocks
+    mockTextGeneration.mockReset();
+    mockTextClassification.mockReset();
+
     jest.clearAllMocks();
-    
+
     conversationService = new ConversationService();
     sentimentService = new SentimentAnalysisService();
   });
@@ -214,13 +213,14 @@ describe('CBT Conversation Logic Integration', () => {
 
   describe('Session Conclusion Logic', () => {
     it('should detect when session should conclude based on conversation length', () => {
-      expect(conversationService.shouldConcludeSession(12)).toBe(true);
+      expect(conversationService.shouldConcludeSession(16)).toBe(true); // > 15
+      expect(conversationService.shouldConcludeSession(12)).toBe(false); // <= 15
       expect(conversationService.shouldConcludeSession(5)).toBe(false);
     });
 
     it('should detect when session should conclude based on user indicators', () => {
-      expect(conversationService.shouldConcludeSession(5, 20, 'Thank you, that helps')).toBe(true);
-      expect(conversationService.shouldConcludeSession(5, 20, 'I feel better now')).toBe(true);
+      expect(conversationService.shouldConcludeSession(5, 20, 'goodbye')).toBe(true);
+      expect(conversationService.shouldConcludeSession(5, 20, 'that\'s all for now')).toBe(true);
       expect(conversationService.shouldConcludeSession(5, 20, 'Tell me more')).toBe(false);
     });
 

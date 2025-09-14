@@ -25,7 +25,7 @@ export function UserDashboard({ user, onStartSession, className = '' }: UserDash
       setLoading(true);
       setError(null);
 
-      const context = await UserService.getUserContext(user.id);
+      const context = await UserService.getUserContext();
       setUserContext(context);
 
     } catch (err) {

@@ -35,6 +35,7 @@ export function VoiceInterface({ className = '' }: VoiceInterfaceProps) {
   const [audioQualityIssues, setAudioQualityIssues] = useState<string[]>([]);
   const [showVoiceSelector, setShowVoiceSelector] = useState(false);
   const [recordingDuration, setRecordingDuration] = useState(0);
+  const [lastClickTime, setLastClickTime] = useState(0);
 
   // Initialize audio system and permissions on mount
   useEffect(() => {
@@ -96,6 +97,14 @@ export function VoiceInterface({ className = '' }: VoiceInterfaceProps) {
   const handleRecordingToggle = useCallback(async () => {
     if (conversationState.isProcessing || audioState.isPlaying) return;
     
+    // Debounce rapid clicks (prevent clicks within 500ms)
+    const now = Date.now();
+    if (now - lastClickTime < 500) {
+      console.log('Ignoring rapid click');
+      return;
+    }
+    setLastClickTime(now);
+    
     if (!audioState.isRecording && !isRecordingActive) {
       // Start recording with error handling
       console.log('Starting recording...');
@@ -136,12 +145,12 @@ export function VoiceInterface({ className = '' }: VoiceInterfaceProps) {
             return;
           }
 
-          // Process the audio message with retry logic
+          // Process the audio message with retry logic and rate limiting
           await retryOperation(
             () => processAudioMessage(audioBlob),
             'process audio message',
             { 
-              maxAttempts: 3,
+              maxAttempts: 2, // Reduced from 3 to prevent rate limiting
               onRetry: (attempt) => {
                 console.log(`Retrying audio processing (attempt ${attempt})`);
               }
@@ -159,6 +168,7 @@ export function VoiceInterface({ className = '' }: VoiceInterfaceProps) {
     audioState.isPlaying, 
     conversationState.isProcessing, 
     isRecordingActive, 
+    lastClickTime,
     startRecording, 
     stopRecording, 
     processAudioMessage,
