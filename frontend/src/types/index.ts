@@ -71,11 +71,8 @@ export interface AppState {
   goals: Goal[];
   globalError?: import('../utils/errorHandling').ErrorInfo;
   isOnline: boolean;
-  retryState?: {
-    operation: string;
-    attempt: number;
-    maxAttempts: number;
-  };
+  retryState: { operation: string; attempt: number; maxAttempts: number } | undefined;
+  sessionVoice?: SpeechSynthesisVoice;
 }
 
 // API Response types

@@ -29,6 +29,7 @@ const initialAppState: AppState = {
   globalError: undefined,
   isOnline: navigator.onLine,
   retryState: undefined,
+  sessionVoice: undefined,
 };
 
 // Action types
@@ -51,7 +52,8 @@ type AppAction =
   | { type: 'RESET_STATE' }
   | { type: 'SET_GLOBAL_ERROR'; payload: ErrorInfo | undefined }
   | { type: 'SET_ONLINE_STATUS'; payload: boolean }
-  | { type: 'SET_RETRY_STATE'; payload: { operation: string; attempt: number; maxAttempts: number } | undefined };
+  | { type: 'SET_RETRY_STATE'; payload: { operation: string; attempt: number; maxAttempts: number } | undefined }
+  | { type: 'SET_SESSION_VOICE'; payload: SpeechSynthesisVoice | undefined };
 
 // Reducer function
 function appReducer(state: AppState, action: AppAction): AppState {
@@ -167,6 +169,9 @@ function appReducer(state: AppState, action: AppAction): AppState {
     
     case 'SET_RETRY_STATE':
       return { ...state, retryState: action.payload };
+    
+    case 'SET_SESSION_VOICE':
+      return { ...state, sessionVoice: action.payload };
     
     default:
       return state;

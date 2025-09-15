@@ -6,7 +6,7 @@ import { ttsService } from '../services/TTSService';
 
 export function useConversation() {
   const { state, dispatch } = useAppContext();
-  const { conversationState, user, currentSession } = state;
+  const { conversationState, user, currentSession, sessionVoice } = state;
 
   // Send a message to the therapy AI
   const sendMessage = useCallback(async (content: string): Promise<void> => {
@@ -109,7 +109,7 @@ export function useConversation() {
         dispatch({ type: 'SET_PLAYING', payload: true });
         
         const ttsResult = await ttsService.speak(aiResponse, {
-          // Use therapy-optimized settings
+          voice: sessionVoice, // Use the voice selected for the session
           rate: 0.85,
           pitch: 1.0,
           volume: 0.9
@@ -152,6 +152,7 @@ export function useConversation() {
       // Try to speak the error message
       try {
         await ttsService.speak(errorMsg.content, {
+          voice: sessionVoice, // Use the voice selected for the session
           rate: 0.85,
           pitch: 1.0,
           volume: 0.9
@@ -162,7 +163,7 @@ export function useConversation() {
     } finally {
       dispatch({ type: 'SET_PROCESSING', payload: false });
     }
-  }, [user, currentSession, dispatch]);
+  }, [user, currentSession, sessionVoice, dispatch]);
 
   // Process audio input
   const processAudioMessage = useCallback(async (audioBlob: Blob, sessionId?: string): Promise<void> => {
@@ -241,6 +242,14 @@ export function useConversation() {
       console.log('Creating new session for user:', user.id);
       const session = await ApiClient.createSession(user.id);
       console.log('New session created:', session);
+
+      // Select and set a consistent voice for the session
+      const voice = ttsService.getBestTherapyVoice();
+      if (voice) {
+        dispatch({ type: 'SET_SESSION_VOICE', payload: voice });
+        console.log('Session voice selected:', voice.name);
+      }
+
       dispatch({ type: 'SET_CURRENT_SESSION', payload: session });
       dispatch({ type: 'CLEAR_MESSAGES' });
     } catch (error) {
