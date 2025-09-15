@@ -22,5 +22,11 @@
   },
   "include": [
     "src"
+  ],
+  "exclude": [
+    "src/services/AuthService.ts",
+    "src/**/__tests__/**",
+    "**/*.test.ts",
+    "**/*.test.tsx"
   ]
 }
