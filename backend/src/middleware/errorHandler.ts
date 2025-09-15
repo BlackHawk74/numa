@@ -209,11 +209,14 @@ export const requestLogger = (req: Request, res: Response, next: NextFunction) =
  */
 const requestCounts = new Map<string, { count: number; resetTime: number }>();
 
-export const rateLimiter = (maxRequests: number = 100, windowMs: number = 15 * 60 * 1000) => {
+export const rateLimiter = (
+  maxRequests: number = Number(process.env.RATE_LIMIT_MAX_REQUESTS || 30),
+  windowMs: number = Number(process.env.RATE_LIMIT_WINDOW_MS || 60_000)
+) => {
   return (req: Request, res: Response, next: NextFunction) => {
     const clientId = req.ip || 'unknown';
     const now = Date.now();
-    
+
     // Clean up old entries
     for (const [key, value] of requestCounts.entries()) {
       if (now > value.resetTime) {
@@ -232,7 +235,7 @@ export const rateLimiter = (maxRequests: number = 100, windowMs: number = 15 * 6
     if (clientRecord.count >= maxRequests) {
       return res.status(429).json({
         error: 'Rate limit exceeded',
-        message: `Too many requests. Limit: ${maxRequests} per ${windowMs / 1000} seconds`,
+        message: `Too many requests. Limit: ${maxRequests} per ${Math.floor(windowMs / 1000)} seconds`,
         retryAfter: Math.ceil((clientRecord.resetTime - now) / 1000)
       });
     }
@@ -242,8 +245,8 @@ export const rateLimiter = (maxRequests: number = 100, windowMs: number = 15 * 6
 
     // Add rate limit headers
     res.set({
-      'X-RateLimit-Limit': maxRequests.toString(),
-      'X-RateLimit-Remaining': (maxRequests - clientRecord.count).toString(),
+      'X-RateLimit-Limit': String(maxRequests),
+      'X-RateLimit-Remaining': String(maxRequests - clientRecord.count),
       'X-RateLimit-Reset': new Date(clientRecord.resetTime).toISOString()
     });
 

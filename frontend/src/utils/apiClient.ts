@@ -18,11 +18,12 @@ export class ApiClient {
   /**
    * Enhanced fetch with timeout, retry logic, and error handling
    */
-  private static async enhancedFetch(
+  static async enhancedFetch(
     url: string,
     options: RequestInit = {},
     retryable: boolean = true
   ): Promise<Response> {
+
     // Check network connectivity first
     if (!NetworkMonitor.getStatus()) {
       throw new Error('No internet connection available');
@@ -172,7 +173,7 @@ export class ApiClient {
    * Get text-to-speech audio (fallback)
    */
   static async textToSpeech(text: string, voice?: string): Promise<Blob> {
-    const response = await fetch(`${this.baseUrl}/api/tts`, {
+    const response = await this.enhancedFetch(`${this.baseUrl}/api/tts`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -194,7 +195,7 @@ export class ApiClient {
    * Create a new session
    */
   static async createSession(userId: string): Promise<Session> {
-    const response = await fetch(`${this.baseUrl}/api/sessions`, {
+    const response = await this.enhancedFetch(`${this.baseUrl}/api/sessions`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -217,7 +218,7 @@ export class ApiClient {
    * Get user sessions
    */
   static async getUserSessions(userId: string): Promise<Session[]> {
-    const response = await fetch(`${this.baseUrl}/api/sessions/${userId}`, {
+    const response = await this.enhancedFetch(`${this.baseUrl}/api/sessions/${userId}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -236,7 +237,7 @@ export class ApiClient {
    * Get user goals
    */
   static async getUserGoals(userId: string): Promise<Goal[]> {
-    const response = await fetch(`${this.baseUrl}/api/goals?userId=${userId}`, {
+    const response = await this.enhancedFetch(`${this.baseUrl}/api/goals?userId=${encodeURIComponent(userId)}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -254,7 +255,7 @@ export class ApiClient {
    * Update session
    */
   static async updateSession(sessionId: string, updates: Partial<Session>): Promise<Session> {
-    const response = await fetch(`${this.baseUrl}/api/sessions/${sessionId}`, {
+    const response = await this.enhancedFetch(`${this.baseUrl}/api/sessions/${sessionId}`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -273,15 +274,12 @@ export class ApiClient {
    * Create a new user
    */
   static async createUser(name?: string, preferences?: Record<string, any>): Promise<User> {
-    const response = await fetch(`${this.baseUrl}/api/users`, {
+    const response = await this.enhancedFetch(`${this.baseUrl}/api/users`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        name,
-        preferences,
-      }),
+      body: JSON.stringify({ name, preferences }),
     });
 
     if (!response.ok) {
@@ -296,7 +294,7 @@ export class ApiClient {
    * Get user by ID
    */
   static async getUser(userId: string): Promise<User> {
-    const response = await fetch(`${this.baseUrl}/api/users/${userId}`, {
+    const response = await this.enhancedFetch(`${this.baseUrl}/api/users/${userId}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -318,13 +316,9 @@ export class ApiClient {
     user: User;
     recentSessions: Session[];
     activeGoals: Goal[];
-    context: {
-      sessionCount: number;
-      goalCount: number;
-      lastSessionDate: string | null;
-    };
+    context: { sessionCount: number; goalCount: number; lastSessionDate: string | null };
   }> {
-    const response = await fetch(`${this.baseUrl}/api/users/${userId}/context`, {
+    const response = await this.enhancedFetch(`${this.baseUrl}/api/users/${userId}/context`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -343,20 +337,14 @@ export class ApiClient {
    */
   static async initializeSession(userId: string): Promise<{
     session: Session;
-    userContext: {
-      user: User;
-      recentSessions: Session[];
-      activeGoals: Goal[];
-    };
+    userContext: { user: User; recentSessions: Session[]; activeGoals: Goal[] };
   }> {
-    const response = await fetch(`${this.baseUrl}/api/sessions/initialize`, {
+    const response = await this.enhancedFetch(`${this.baseUrl}/api/sessions/initialize`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        userId,
-      }),
+      body: JSON.stringify({ userId }),
     });
 
     if (!response.ok) {
@@ -370,11 +358,8 @@ export class ApiClient {
   /**
    * Update user
    */
-  static async updateUser(userId: string, updates: {
-    name?: string;
-    preferences?: Record<string, any>;
-  }): Promise<User> {
-    const response = await fetch(`${this.baseUrl}/api/users/${userId}`, {
+  static async updateUser(userId: string, updates: { name?: string; preferences?: Record<string, any> }): Promise<User> {
+    const response = await this.enhancedFetch(`${this.baseUrl}/api/users/${userId}`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -394,16 +379,12 @@ export class ApiClient {
    * Create a new goal
    */
   static async createGoal(userId: string, description: string, targetDate?: string): Promise<Goal> {
-    const response = await fetch(`${this.baseUrl}/api/goals`, {
+    const response = await this.enhancedFetch(`${this.baseUrl}/api/goals`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        userId,
-        description,
-        targetDate,
-      }),
+      body: JSON.stringify({ userId, description, targetDate }),
     });
 
     if (!response.ok) {
@@ -417,13 +398,8 @@ export class ApiClient {
   /**
    * Update goal
    */
-  static async updateGoal(goalId: string, updates: {
-    description?: string;
-    status?: 'active' | 'completed' | 'cancelled';
-    targetDate?: string;
-    progressNote?: string;
-  }): Promise<Goal> {
-    const response = await fetch(`${this.baseUrl}/api/goals/${goalId}`, {
+  static async updateGoal(goalId: string, updates: { description?: string; status?: 'active' | 'completed' | 'cancelled'; targetDate?: string; progressNote?: string; }): Promise<Goal> {
+    const response = await this.enhancedFetch(`${this.baseUrl}/api/goals/${goalId}`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -443,14 +419,12 @@ export class ApiClient {
    * Complete a goal
    */
   static async completeGoal(goalId: string, progressNote?: string): Promise<Goal> {
-    const response = await fetch(`${this.baseUrl}/api/goals/${goalId}/complete`, {
+    const response = await this.enhancedFetch(`${this.baseUrl}/api/goals/${goalId}/complete`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        progressNote,
-      }),
+      body: JSON.stringify({ progressNote }),
     });
 
     if (!response.ok) {
@@ -464,68 +438,55 @@ export class ApiClient {
 
 // Export default instance for convenience
 export const apiClient = {
-  get: async (url: string, options?: { params?: Record<string, any> }) => {
+  get: async (url: string, options?: { params?: Record<string, any>; headers?: Record<string, string> }) => {
     const searchParams = options?.params ? new URLSearchParams(options.params).toString() : '';
     const fullUrl = `${API_BASE_URL}${url}${searchParams ? `?${searchParams}` : ''}`;
-    
-    const response = await fetch(fullUrl, {
+    const response = await ApiClient.enhancedFetch(fullUrl, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
+        ...(options?.headers || {}),
       },
     });
-
-    if (!response.ok) {
-      throw new Error(`API error: ${response.statusText}`);
-    }
-
+    if (!response.ok) throw new Error(`API error: ${response.statusText}`);
     return { data: await response.json() };
   },
 
-  post: async (url: string, data?: any) => {
-    const response = await fetch(`${API_BASE_URL}${url}`, {
+  post: async (url: string, data?: any, options?: { headers?: Record<string, string> }) => {
+    const response = await ApiClient.enhancedFetch(`${API_BASE_URL}${url}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        ...(options?.headers || {}),
       },
       body: data ? JSON.stringify(data) : undefined,
     });
-
-    if (!response.ok) {
-      throw new Error(`API error: ${response.statusText}`);
-    }
-
+    if (!response.ok) throw new Error(`API error: ${response.statusText}`);
     return { data: await response.json() };
   },
 
-  put: async (url: string, data?: any) => {
-    const response = await fetch(`${API_BASE_URL}${url}`, {
+  put: async (url: string, data?: any, options?: { headers?: Record<string, string> }) => {
+    const response = await ApiClient.enhancedFetch(`${API_BASE_URL}${url}`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
+        ...(options?.headers || {}),
       },
       body: data ? JSON.stringify(data) : undefined,
     });
-
-    if (!response.ok) {
-      throw new Error(`API error: ${response.statusText}`);
-    }
-
+    if (!response.ok) throw new Error(`API error: ${response.statusText}`);
     return { data: await response.json() };
   },
 
-  delete: async (url: string) => {
-    const response = await fetch(`${API_BASE_URL}${url}`, {
+  delete: async (url: string, options?: { headers?: Record<string, string> }) => {
+    const response = await ApiClient.enhancedFetch(`${API_BASE_URL}${url}`, {
       method: 'DELETE',
       headers: {
         'Content-Type': 'application/json',
+        ...(options?.headers || {}),
       },
     });
-
-    if (!response.ok) {
-      throw new Error(`API error: ${response.statusText}`);
-    }
-
+    if (!response.ok) throw new Error(`API error: ${response.statusText}`);
     return { data: await response.json() };
   },
 };

@@ -75,20 +75,24 @@ export interface Database {
 
 // Validate required environment variables
 const supabaseUrl = process.env.SUPABASE_URL;
+// Prefer service role key on the server to avoid RLS issues
+const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
 
 if (!supabaseUrl) {
   throw new Error('Missing SUPABASE_URL environment variable');
 }
 
-if (!supabaseAnonKey) {
-  throw new Error('Missing SUPABASE_ANON_KEY environment variable');
+// Use service role if available; otherwise fall back to anon key
+const supabaseKey = supabaseServiceRoleKey || supabaseAnonKey;
+if (!supabaseKey) {
+  throw new Error('Missing Supabase key: provide SUPABASE_SERVICE_ROLE_KEY (recommended) or SUPABASE_ANON_KEY');
 }
 
 // Create and export Supabase client
 export const supabase: SupabaseClient<Database> = createClient<Database>(
   supabaseUrl,
-  supabaseAnonKey,
+  supabaseKey,
   {
     auth: {
       autoRefreshToken: true,

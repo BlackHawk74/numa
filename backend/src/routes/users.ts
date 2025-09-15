@@ -13,13 +13,44 @@ router.post('/', async (req: Request, res: Response) => {
 
     console.log('Creating new user:', { name, preferences });
 
-    // Create user
+    // If authenticated, use Supabase auth user ID to avoid duplicates
+    const authUser = (req as any).authUser as { id: string; email?: string; user_metadata?: Record<string, any> } | undefined;
+
+    if (authUser?.id) {
+      try {
+        // Check if profile already exists for this auth user
+        const existing = await UserRepository.findById(authUser.id);
+        if (existing) {
+          return res.status(200).json({
+            user: existing,
+            message: 'User already exists'
+          });
+        }
+
+        // Create profile using auth user ID
+        const user = await UserRepository.create({
+          id: authUser.id,
+          name: name || (authUser.user_metadata?.full_name as string) || authUser.email || 'Anonymous User',
+          preferences: preferences || {}
+        });
+
+        return res.status(201).json({
+          user,
+          message: 'User created successfully'
+        });
+      } catch (err) {
+        console.warn('Auth-aware user creation failed, falling back to anonymous create:', err);
+        // Fall through to anonymous create below
+      }
+    }
+
+    // Anonymous/unauthenticated creation (dev/testing)
     const user = await UserRepository.create({
       name: name || 'Anonymous User',
       preferences: preferences || {}
     });
 
-    res.status(201).json({
+    return res.status(201).json({
       user,
       message: 'User created successfully'
     });

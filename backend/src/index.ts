@@ -30,7 +30,7 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(addRequestStartTime);
 app.use(requestLogger);
-app.use(rateLimiter(100, 15 * 60 * 1000)); // 100 requests per 15 minutes
+app.use(rateLimiter()); // Defaults can be configured via RATE_LIMIT_MAX_REQUESTS and RATE_LIMIT_WINDOW_MS
 
 // Health check endpoint with database status
 app.get('/health', async (req, res) => {
@@ -78,12 +78,12 @@ app.get('/health/connectivity', (req, res) => {
   });
 });
 
-// API Routes
+// Public API Routes (no authentication)
+app.use('/api/users', usersRoutes);
 app.use('/api/stt', sttRoutes);
 app.use('/api/therapy', therapyRoutes);
 app.use('/api/tts', ttsRoutes);
 app.use('/api/sessions', sessionsRoutes);
-app.use('/api/users', usersRoutes);
 app.use('/api/goals', goalsRoutes);
 
 // Error handling middleware (must be after routes)

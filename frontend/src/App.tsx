@@ -71,7 +71,7 @@ function AppContent() {
     e.preventDefault();
     try {
       await retryOperation(
-        () => initializeUser(userName.trim() || 'Demo User'),
+        () => initializeUser(userName.trim() || 'Guest User'),
         'initialize user'
       );
     } catch (error) {
