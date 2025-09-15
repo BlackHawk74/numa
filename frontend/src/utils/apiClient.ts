@@ -7,7 +7,7 @@ const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
 export class ApiClient {
   private static baseUrl = API_BASE_URL;
-  private static requestTimeout = 30000; // 30 seconds
+  private static requestTimeout = 60000; // 60 seconds
   private static retryConfig = {
     maxAttempts: 3,
     baseDelay: 1000,

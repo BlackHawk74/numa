@@ -11,7 +11,8 @@ router.post('/', async (req: Request, res: Response) => {
   try {
     const { name, preferences } = req.body;
 
-    console.log('Creating new user:', { name, preferences });
+    console.log('Received request to create new user:', { name, preferences });
+    const startTime = Date.now();
 
     // If authenticated, use Supabase auth user ID to avoid duplicates
     const authUser = (req as any).authUser as { id: string; email?: string; user_metadata?: Record<string, any> } | undefined;
@@ -45,11 +46,14 @@ router.post('/', async (req: Request, res: Response) => {
     }
 
     // Anonymous/unauthenticated creation (dev/testing)
+    console.log(`Starting database operation for anonymous user...`);
     const user = await UserRepository.create({
       name: name || 'Anonymous User',
       preferences: preferences || {}
     });
 
+    const duration = Date.now() - startTime;
+    console.log(`Anonymous user created successfully in ${duration}ms`);
     return res.status(201).json({
       user,
       message: 'User created successfully'
